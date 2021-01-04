@@ -2,16 +2,13 @@
 
 __author__ = "Dipesh Kumar"
 
-import xml.etree.ElementTree as ET 
-from .dataset import Dataset, Functionals
-from .tokenizer import Tokenizer
-from .lang import  CharTokens
+from .dataset import Dataset
+from .tokenizer import Tokenizer, CharTokens
 
 from tqdm import tqdm
 from typing import Union, Dict
 from pathlib import Path
 from abc import ABC, abstractmethod, abstractstaticmethod
-import re
 
 class Parser(ABC):
     @abstractstaticmethod
