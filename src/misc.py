@@ -71,7 +71,7 @@ class FileReader(object):
             flat.add(line)
         return flat
 
-class MetaWriter(object):
+class FileWriter(object):
 
     def __init__(self, filepath):
         self.fw = open(filepath, 'w')
