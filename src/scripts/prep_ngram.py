@@ -6,8 +6,8 @@ from nlcodec import load_scheme, EncoderScheme, Type
 import numpy as np
 from tqdm import tqdm
 
-from dataset import Dataset
-from misc import FileWriter
+from lib.dataset import Dataset, read_parallel
+from lib.misc import FileWriter
 
 def parse_args():
     parser = argparse.ArgumentParser(prog='scripts.prep', description='Prepare data for NMT experiment given the vocabs')
@@ -16,6 +16,7 @@ def parse_args():
     parser.add_argument('-v', '--vocab', type=str, nargs='+', help='Enter vocabs as pairs : type [shared, src, tgt] and path to the file')
     parser.add_argument('-b', '--bpe_words', type=str, nargs='+', help='Similar to vocab arg')
     parser.add_argument('-m', '--min_freq', default=50, type=int, help='Minimum frequency upto which bi-grams are to be considered')
+    parser.add_argument('-a', '--max_add', default=10000, type=int, help='Maximum number of bigrams to be added')
     parser.add_argument('-s', '--shared', type=bool, default=False)
     return parser.parse_args()
 
@@ -34,18 +35,6 @@ def validate_vocab_files(vocab_files:Dict[str,Union[Path,str]], shared):
         assert 'tgt' in vocab_files.keys()
         assert vocab_files['src'].exists()
         assert vocab_files['tgt'].exists()
-
-def read_parallel(parallel_file:Path):
-    ds = Dataset(['src', 'tgt'])
-    with open(parallel_file, 'r') as fr:
-        print('\t\t > Reading parallel data file ...')
-        for line in tqdm(fr):
-            x, y = line.strip().split('\t')
-            src = list(map(int, x.split()))
-            tgt = list(map(int, y.split()))
-            ds.append([src, tgt], keys=['src', 'tgt'])
-    return ds
-
 
 def load_indexes(bpe_words_file:Path):
     indexes = set()
@@ -82,17 +71,20 @@ def get_bigrams(bpe_word_file:Path, corps:List[List[Union[str, int]]], min_freq:
     bigram_toks = [((x//max_idx, x%max_idx), freq) for x, freq in bigram_list if freq >= min_freq]
     return bigram_toks
 
-def add_bigrams(vocab_file:Path, bigrams:List[Tuple[Tuple[int,int], int]], save_dir:Path):
+def add_bigrams(vocab_file:Path, bigrams:List[Tuple[Tuple[int,int], int]], save_dir:Path, max_add=10000):
     scheme = load_scheme(vocab_file)
     start_idx = len(scheme.table)
     offset = 0
     for tok_pair, freq in tqdm(bigrams):
         name = scheme.table[tok_pair[0]].name + scheme.table[tok_pair[1]].name
         scheme.table.append(Type(name, 1, start_idx+offset, freq, [scheme.table[x] for x in tok_pair]))
+        max_add -= 1
+        if max_add == 0:
+            break
         offset += 1
-    Type.write_out(scheme.table, save_dir / Path(f'{vocab_file.stem}.mod.model'))
+    Type.write_out(scheme.table, save_dir / Path(str(vocab_file.name).replace('.model', '.mod.model')))
 
-def modify(data_file:Path, work_dir:Path, vocab_files:Dict[str,Union[str,Path]], 
+def modify(data_files:Path, work_dir:Path, vocab_files:Dict[str,Union[str,Path]], 
             bpe_word_files:Dict[str,Union[str,Path]], min_freq:int=50, shared:bool=False):    
     dataset = read_parallel(data_file)
     bigrams = dict()

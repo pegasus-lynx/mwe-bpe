@@ -4,8 +4,10 @@ from itertools import zip_longest
 from typing import Union, List, Dict
 from nlcodec import load_scheme, EncoderScheme, Type
 import numpy as np
-from misc import FileWriter
+from lib.misc import FileWriter
 from tqdm import tqdm
+
+from lib.dataset import SqliteFile
 
 def parse_args():
     parser = argparse.ArgumentParser(prog='scripts.prep', description='Prepare data for NMT experiment given the vocabs')
@@ -35,10 +37,9 @@ def args_validation(args):
     # assert args.src_len != 0
     # assert args.tgt_len != 0
 
-
 def pre_process(src_path:Union[Path, str], tgt_path:Union[Path, str], vocab_files:Dict[str,Path],
                 truncate:bool, src_len:int, tgt_len:int, work_file:Path):
-    codecs = {key: load_scheme(value) for (key, value) in vocab_files.items()}
+    codecs = {key: load_scheme(value) for (key, value) in vocab_files.items() if value is not None}
     recs = read_parallel_recs(codecs, src_path, tgt_path, truncate, 
                                 src_len, tgt_len, encode_as_ids, encode_as_ids)
     write_parallel_recs(recs, work_file)
@@ -77,8 +78,13 @@ def write_lines(lines, path):
     fw.close()
 
 def write_parallel_recs(records, path:Union[str, Path]):
+    if path.name.endswith('.db'):
+        SqliteFile.write(path, records)
+        path = str(path).replace('.db', '.tsv')
     seqs = ((' '.join(map(str, x)), ' '.join(map(str, y))) for x, y in records)
     lines = (f'{x}\t{y}' for x,y in seqs)
+    write_lines(lines, path)
+    path = str(path).replace('.tsv', '.tsv.gz')
     write_lines(lines, path)
 
 def main():
@@ -99,7 +105,7 @@ def main():
         vocab_files['tgt'] = args.tgt_vocab
 
     pre_process(args.src_path, args.tgt_path, vocab_files, args.truncate, 
-                args.src_len, args.tgt_len, args.work_dir / Path('train.tsv'))
+                args.src_len, args.tgt_len, args.work_dir / Path('train.db'))
     
 if __name__ == "__main__":
     main()

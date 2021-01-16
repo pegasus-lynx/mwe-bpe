@@ -7,8 +7,8 @@ from tqdm import tqdm
 from typing import Union
 from pathlib import Path
 
-from tokenizer import Tokenizer, Reserved
-from misc import FileReader
+from lib.tokenizer import Tokenizer, Reserved
+from lib.misc import FileReader
 
 class Vocabs(object):
 

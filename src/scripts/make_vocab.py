@@ -3,8 +3,8 @@ from pathlib import Path
 from typing import Union, List, Dict
 from nlcodec import learn_vocab, term_freq
 
-from vocabs import Vocabs
-from misc import load_conf, FileReader, FileWriter
+from lib.vocabs import Vocabs
+from lib.misc import load_conf, FileReader, FileWriter
 
 def parse_args():
     parser = argparse.ArgumentParser(prog='scripts.vocab', description='Prepare data for NMT experiment.')

@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Union, List, Dict
 from nlcodec import load_scheme, Reseved, Type
 from collections import Counter
-from misc import FileWriter, get_now
+from lib.misc import FileWriter, get_now
 
 
 def parse_args():
@@ -69,7 +69,7 @@ def main():
         vdir.mkdir()
         print('\t > Making vocab dir ...')
 
-    tokens = bpe_words(args.bpe_vocab, args.word_vocab, vdir / Path('bpe.word.model'))
+    bpe_words(args.bpe_vocab, args.word_vocab, vdir / Path('bpe.word.model'))
 
 if __name__ == "__main__":
     main()
