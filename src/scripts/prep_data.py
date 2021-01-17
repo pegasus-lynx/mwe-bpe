@@ -7,7 +7,7 @@ import numpy as np
 from lib.misc import FileWriter
 from tqdm import tqdm
 
-from lib.dataset import SqliteFile
+from lib.dataset import SqliteFile, TSVData
 
 def parse_args():
     parser = argparse.ArgumentParser(prog='scripts.prep', description='Prepare data for NMT experiment given the vocabs')
@@ -40,6 +40,28 @@ def args_validation(args):
 def pre_process(src_path:Union[Path, str], tgt_path:Union[Path, str], vocab_files:Dict[str,Path],
                 truncate:bool, src_len:int, tgt_len:int, work_file:Path):
     codecs = {key: load_scheme(value) for (key, value) in vocab_files.items() if value is not None}
+
+    print(f'> Writing {work_file.name} ...')
+    recs = read_parallel_recs(codecs, src_path, tgt_path, truncate, 
+                                src_len, tgt_len, encode_as_ids, encode_as_ids)
+    write_parallel_recs(recs, work_file)
+
+
+    if work_file.name.endswith('.db'):
+        work_file = work_file.with_suffix('.tsv')
+    elif work_file.name.endswith('.tsv'):
+        work_file = work_file.with_suffix('.tsv.gz')
+
+    print(f'> Writing {work_file.name} ...')
+    recs = read_parallel_recs(codecs, src_path, tgt_path, truncate, 
+                                src_len, tgt_len, encode_as_ids, encode_as_ids)
+    write_parallel_recs(recs, work_file)
+
+    if work_file.name.endswith('.gz'):
+        return
+
+    work_file = work_file.with_suffix('.tsv.gz')
+    print(f'> Writing {work_file.name} ...')
     recs = read_parallel_recs(codecs, src_path, tgt_path, truncate, 
                                 src_len, tgt_len, encode_as_ids, encode_as_ids)
     write_parallel_recs(recs, work_file)
@@ -57,7 +79,8 @@ def read_parallel_lines(src_path:Union[Path, str], tgt_path:Union[Path, str]):
 
 def read_parallel_recs(codecs: Dict[str,Path], src_path:Path, tgt_path:Path, truncate:bool, 
                         src_len:int, tgt_len:int, src_tokenizer, tgt_tokenizer):
-    recs = read_parallel_lines(src_path, tgt_path)
+    # recs = read_parallel_lines(src_path, tgt_path)
+    
     if 'shared' in codecs.keys():
         src_codec = codecs['shared']
         tgt_codec = codecs['shared']
@@ -65,12 +88,15 @@ def read_parallel_recs(codecs: Dict[str,Path], src_path:Path, tgt_path:Path, tru
         src_codec = codecs['src']
         tgt_codec = codecs['tgt']
 
-    recs = ((src_tokenizer(src_codec, x), tgt_tokenizer(tgt_codec, y)) for x, y in tqdm(recs))
-    if truncate:
-        recs = ((src[:src_len], tgt[:tgt_len]) for src, tgt in recs)
-    else:  # Filter out longer sentences
-        recs = ((src, tgt) for src, tgt in tqdm(recs) if len(src) <= src_len and len(tgt) <= tgt_len)
-    return recs    
+    return TSVData.read_raw_parallel_recs(src_path, tgt_path, truncate, src_len, tgt_len, 
+                                lambda x: src_tokenizer(src_codec, x), lambda y: tgt_tokenizer(tgt_codec, y))
+
+    # recs = ((src_tokenizer(src_codec, x), tgt_tokenizer(tgt_codec, y)) for x, y in tqdm(recs))
+    # if truncate:
+    #     recs = ((src[:src_len], tgt[:tgt_len]) for src, tgt in recs)
+    # else:  # Filter out longer sentences
+    #     recs = ((src, tgt) for src, tgt in tqdm(recs) if len(src) <= src_len and len(tgt) <= tgt_len)
+    # return recs    
 
 def write_lines(lines, path):
     fw = FileWriter(path)
@@ -80,12 +106,13 @@ def write_lines(lines, path):
 def write_parallel_recs(records, path:Union[str, Path]):
     if path.name.endswith('.db'):
         SqliteFile.write(path, records)
-        path = str(path).replace('.db', '.tsv')
-    seqs = ((' '.join(map(str, x)), ' '.join(map(str, y))) for x, y in records)
-    lines = (f'{x}\t{y}' for x,y in seqs)
-    write_lines(lines, path)
-    path = str(path).replace('.tsv', '.tsv.gz')
-    write_lines(lines, path)
+    else:
+        TSVData.write_parallel_recs(records, path)
+    # seqs = ((' '.join(map(str, x)), ' '.join(map(str, y))) for x, y in records)
+    # lines = (f'{x}\t{y}' for x,y in seqs)
+    # write_lines(lines, path)
+    # path = Path(str(path).replace('.tsv', '.tsv.gz'))
+    # write_lines(lines, path)
 
 def main():
     print('Running Scripts ...')

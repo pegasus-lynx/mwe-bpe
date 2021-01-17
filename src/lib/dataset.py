@@ -1,11 +1,15 @@
 import os
 import numpy as np
 from tqdm import tqdm
+from itertools import zip_longest
 from pathlib import Path
+import gzip
 import random
 import sqlite3
 from collections import OrderedDict
 from typing import Iterable, Iterator, Tuple, List, Union
+
+from lib.misc import IO
 
 Array = np.ndarray
 RawRecord = Tuple[str, str]
@@ -243,3 +247,115 @@ class SqliteFile(Iterable[IdExample]):
             # bring the file back to original location where it should be
             # copy_file(maybe_tmp, path)
         # log.info(f"stored {count} rows in {path}")
+
+class TSVData(Iterable[IdExample]):
+
+    def __init__(self, path: Union[str, Path], in_mem=False, shuffle=False, longest_first=True,
+                 max_src_len: int = 512, max_tgt_len: int = 512, truncate: bool = False):
+        """
+        :param path: path to TSV file have parallel sequences
+        :param in_mem: hold data in memory instead of reading from file for subsequent pass.
+         Don't use in_mem for large data_sets.
+        :param shuffle: shuffle data between the reads
+        :param longest_first: On the first read, get the longest sequence first by sorting by length
+        """
+        self.path = path
+        self.in_mem = in_mem or shuffle or longest_first
+        self.longest_first = longest_first
+        self.shuffle = shuffle
+        self.truncate = truncate
+        self.max_src_len, self.max_tgt_len = max_src_len, max_tgt_len
+        self.mem = list(self.read_all()) if self.in_mem else None
+        self._len = len(self.mem) if self.in_mem else line_count(path)
+        self.read_counter = 0
+
+    @staticmethod
+    def _parse(line: str):
+        return [int(t) for t in line.split()]
+
+    def read_all(self) -> Iterator[IdExample]:
+        with IO.reader(self.path) as lines:
+            recs = (line.split('\t') for line in lines)
+            for idx, rec in enumerate(recs):
+                x = self._parse(rec[0].strip())
+                y = self._parse(rec[1].strip()) if len(rec) > 1 else None
+                if self.truncate:  # truncate long recs
+                    x = x[:self.max_src_len]
+                    y = y if y is None else y[:self.max_tgt_len]
+                elif len(x) > self.max_src_len or (0 if y is None else len(y)) > self.max_tgt_len:
+                    continue  # skip long recs
+                if not x or (y is not None and len(y) == 0):  # empty on one side
+                    log.warning(f"Ignoring an empty record  x:{len(x)}    y:{len(y)}")
+                    continue
+                yield IdExample(x, y, id=idx)
+
+    def __len__(self):
+        return self._len
+
+    def __iter__(self) -> Iterator[IdExample]:
+        if self.shuffle:
+            if self.read_counter == 0:
+                log.info("shuffling the data...")
+            random.shuffle(self.mem)
+        if self.longest_first:
+            if self.read_counter == 0:
+                log.info("Sorting the dataset by length of target sequence")
+            sort_key = lambda ex: len(ex.y) if ex.y is not None else len(ex.x)
+            self.mem = sorted(self.mem, key=sort_key, reverse=True)
+            if self.read_counter == 0:
+                log.info(f"Longest source seq length: {len(self.mem[0].x)}")
+
+        yield from self.mem if self.mem else self.read_all()
+        self.read_counter += 1
+
+    @staticmethod
+    def write_lines(lines, path):
+        # log.info(f"Storing data at {path}")
+        with IO.writer(path) as f:
+            for line in lines:
+                f.write(line)
+                f.write('\n')
+
+    @staticmethod
+    def write_parallel_recs(records: Iterator[ParallelSeqRecord], path: Union[str, Path]):
+        seqs = ((' '.join(map(str, x)), ' '.join(map(str, y))) for x, y in records)
+        lines = (f'{x}\t{y}' for x, y in seqs)
+        TSVData.write_lines(lines, path)
+
+    @staticmethod
+    def write_mono_recs(records: Iterator[MonoSeqRecord], path: Union[str, Path]):
+        lines = (' '.join(map(str, rec)) for rec in records)
+        TSVData.write_lines(lines, path)
+
+    @staticmethod
+    def read_raw_parallel_lines(src_path: Union[str, Path], tgt_path: Union[str, Path]) \
+            -> Iterator[RawRecord]:
+        with IO.reader(src_path) as src_lines, IO.reader(tgt_path) as tgt_lines:
+            # if you get an exception here --> files have un equal number of lines
+            recs = ((src.strip(), tgt.strip()) for src, tgt in zip_longest(src_lines, tgt_lines))
+            recs = ((src, tgt) for src, tgt in recs if src and tgt)
+            yield from recs
+
+    @staticmethod
+    def read_raw_parallel_recs(src_path: Union[str, Path], tgt_path: Union[str, Path],
+                               truncate: bool, src_len: int, tgt_len: int, src_tokenizer,
+                               tgt_tokenizer) \
+            -> Iterator[ParallelSeqRecord]:
+        recs = TSVData.read_raw_parallel_lines(src_path, tgt_path)
+
+        recs = ((src_tokenizer(x), tgt_tokenizer(y)) for x, y in recs)
+        if truncate:
+            recs = ((src[:src_len], tgt[:tgt_len]) for src, tgt in recs)
+        else:  # Filter out longer sentences
+            recs = ((src, tgt) for src, tgt in recs if len(src) <= src_len and len(tgt) <= tgt_len)
+        return recs
+
+    @staticmethod
+    def read_raw_mono_recs(path: Union[str, Path], truncate: bool, max_len: int, tokenizer):
+        with IO.reader(path) as lines:
+            recs = (tokenizer(line.strip()) for line in lines if line.strip())
+            if truncate:
+                recs = (rec[:max_len] for rec in recs)
+            else:  # Filter out longer sentences
+                recs = (rec for rec in recs if 0 < len(rec) <= max_len)
+            yield from recs
