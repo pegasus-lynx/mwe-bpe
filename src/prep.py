@@ -79,7 +79,7 @@ def prep(conf=None):
     log('Preparing base datasets ...', 1)
     log('Train Dataset', 2)
     prep_data(corpus['train_src'], corpus['train_tgt'], bpe_vocab, conf.get('truncate'), 
-                conf.get('src_len'), conf.get('tgt_len'), ddir / Path('train.base.tsv') )
+                conf.get('src_len'), conf.get('tgt_len'), ddir / Path('train.base.db') )
     log('Validation Dataset', 2)
     prep_data(corpus['valid_src'], corpus['valid_tgt'], bpe_vocab, conf.get('truncate'), 
                 conf.get('src_len'), conf.get('tgt_len'), ddir / Path('valid.base.tsv') )
