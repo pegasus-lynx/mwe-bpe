@@ -2,13 +2,15 @@
 
 __author__ = "Dipesh Kumar"
 
-from .dataset import Dataset
-from .tokenizer import Tokenizer, CharTokens
+from abc import ABC, abstractmethod, abstractstaticmethod
+from pathlib import Path
+from typing import Dict, Union
 
 from tqdm import tqdm
-from typing import Union, Dict
-from pathlib import Path
-from abc import ABC, abstractmethod, abstractstaticmethod
+
+from .dataset import Dataset
+from .tokenizer import CharTokens, Tokenizer
+
 
 class Parser(ABC):
     @abstractstaticmethod
@@ -71,10 +73,11 @@ class Parallel(Parser):
         return dataset
 
     @staticmethod
-    def filter(row, langs={'src':'en', 'tgt':'hi'}):
-        src, tgt = row
-        if not CharTokens.eng(src):
-            return False 
-        if not CharTokens.hin(tgt):
-            return False       
-        return True
+    def filter(row, langs=['en', 'hi']):
+        filter_in = True
+        for text, lang in zip(row, langs):
+            if lang == 'en':
+                filter_in = filter_in and CharTokens.eng(text)
+            elif lang == 'hi':
+                filter_in = filter_in and CharTokens.hin(text)
+        return filter_in

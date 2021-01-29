@@ -1,14 +1,16 @@
+import gzip
 import json
 import uuid
 from datetime import datetime
-from typing import List, Union
 from pathlib import Path
-import gzip
+from typing import List, Union
 
-def load_conf(filepath):
-    config_file =  open(filepath, "r")
-    configs = json.load(config_file)
-    return configs
+# Defining commonly used types
+Filepath = Union[Path,str]
+
+
+def log(text, ntabs=0):
+    print(f"{'    '*ntabs} > {text}")
 
 def get_now():
     datetime_str = datetime.now().isoformat()
@@ -16,35 +18,23 @@ def get_now():
     pos = datetime_str.index('.')
     return datetime_str[:pos]
 
-def make_dir(bdir:Path, sdir:Path = None):
-    """
-        @param bdir: Path to the base dir
-        @param sdir: Stem name for the working dir
-    """
+def read_conf(conf_file:Union[str,Path], conf_type:str='yaml'):
+    if type(conf_file) == str:
+        conf_file = Path(conf_file)
 
-    if sdir is None:
-        sdir = Path(f'dir-{uuid.uuid4()}')
-
-    workdir = bdir / sdir
-    if not workdir.exists():
-        try:
-            print(f'> Making working directory : {workdir.relative_to(bdir)} ...')
-            workdir.mkdir()
-        except Exception as e:
-            print(f'> Could not make working directory : {workdir.relative_to(bdir)}. Trying again ...')
-            sdir = Path(f'dir-{uuid.uuid4()}')
-            workdir = bdir / sdir
-            print(f'> Making working directory : {workdir.relative_to(bdir)} ...')
-            workdir.mkdir()
-    else:
-        print(f'> Directory {workdir.relative_to(bdir)} exists.')
-
-    return workdir
+    if conf_type in ['yaml', 'yml']:
+        from ruamel.yaml import YAML
+        yaml = YAML(typ='safe')
+        return yaml.load(conf_file)
+    if conf_type == 'json':
+        fr = open(conf_file, 'r')
+        return json.load(fr)
+    return None
 
 class FileReader(object):
-    def __init__(self, filepaths:List[Path], tokenized=True):
+    def __init__(self, filepaths:List[Path], segmented=True):
         self.filepaths = filepaths
-        self.tokenized = tokenized
+        self.segmented = segmented
         self.length = None
 
     def __iter__(self):
@@ -52,7 +42,7 @@ class FileReader(object):
             fs = open(filepath, 'r')
             for line in fs:
                 line = line.strip()
-                if self.tokenized:
+                if self.segmented:
                     line = line.split()
                 yield line
 

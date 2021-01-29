@@ -2,34 +2,37 @@
 
 __author__ = "Dipesh Kumar"
 
-import re
 import json
+import re
 from collections import Counter
+from typing import List, Union
 
-from sacremoses import MosesTokenizer, MosesDetokenizer
+from indicnlp.normalize.indic_normalize import IndicNormalizerFactory
+from indicnlp.tokenize import indic_tokenize, sentence_tokenize
+from sacremoses import MosesDetokenizer, MosesTokenizer
 
-# from indicnlp import loader, common
-# from indicnlp.tokenize import sentence_tokenize, indic_tokenize
-# from indicnlp.normalize.indic_normalize import IndicNormalizerFactory
-
-# config_file =  open("../../config.json", "r")
-# configs = json.load(config_file)
 
 class CharTokens(object):
-    symbols = [
+
+    # Symbols
+    symbols = set([
         '.', ',', '(', ')', '[', ']', '{', '}', '!',
         ':', '-', '"', "'", ';', '<', '>', '?', '&',
         '–', '@', ' ', '\t', '\n'
-    ]
-    en_digits = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
-    hi_digits = ['०', '१', '२', '३', '४', '५', '६', '७', '८', '९']
-    en_chars  = [
+    ])
+
+    # Eglish Digits and Chars
+    en_digits = set(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'])
+    en_chars  = set([
         'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 
         'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', 
         'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 
         'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'
-    ]
-    hi_chars  = [
+    ])
+
+    # Hindi Digits and Chars
+    hi_digits = set(['०', '१', '२', '३', '४', '५', '६', '७', '८', '९'])
+    hi_chars  = set([
         'ऀ', 'ँ', 'ं', 'ः', 'ऄ', 'अ', 'आ', 'इ', 'ई', 'उ', 'ऊ', 'ऋ', 'ऌ', 
         'ऍ', 'ऎ', 'ए', 'ऐ', 'ऑ', 'ऒ', 'ओ', 'औ', 'क', 'ख', 'ग', 'घ', 'ङ', 
         'च', 'छ', 'ज', 'झ', 'ञ', 'ट', 'ठ', 'ड', 'ढ', 'ण', 'त', 'थ', 'द', 
@@ -39,7 +42,12 @@ class CharTokens(object):
         '॑', '॒', '॓', '॔', 'ॕ', 'ॖ', 'ॗ', 'क़', 'ख़', 'ग़', 'ज़', 'ड़', 'ढ़', 'फ़', 
         'य़', 'ॠ', 'ॡ', 'ॢ', 'ॣ', '।', '॥', '॰', 'ॱ', 'ॲ', 'ॳ', 'ॴ', 'ॵ', 
         'ॶ', 'ॷ', 'ॸ', 'ॹ', 'ॺ', 'ॻ', 'ॼ', 'ॽ', 'ॾ', 'ॿ'
-    ]
+    ])
+
+    langs = {
+        'en':{'digits':en_digits, 'chars':en_chars}, 
+        'hi':{'digits':hi_digits, 'chars':hi_chars}
+    }
 
     @classmethod
     def eng(cls, text:str):
@@ -63,6 +71,36 @@ class CharTokens(object):
             if not valid:
                 return False
         return True
+
+    @classmethod
+    def is_symbol(cls, text:str):
+        return text in cls.symbols
+
+    @classmethod
+    def check_lang(cls, text, lang=None:Union[str,List[str]]):
+        if len(text) != 1:
+            return None
+
+        # Setting the keys for matching       
+        keys = cls.langs.keys()
+        if lang is not None:
+            if type(lang) == list:
+                keys = lang
+            else:
+                keys = [lang]
+
+        for key in keys:
+            if key not in cls.langs.keys():
+                continue
+            if text in cls.langs[key]['digits']:
+                return key
+            if text in cls.langs[key]['chars']:
+                return key
+
+        if text in cls.symbols:
+            return 'sym'
+
+        return None
 
 class Reserved(object):
     PAD_TOK = "<pad>", 0
@@ -103,8 +141,8 @@ class Tokenizer(object):
         # loader.load()
 
         # For indic languages
-        # factory = IndicNormalizerFactory()
-        # self.normalizer = factory.get_normalizer("hi")
+        factory = IndicNormalizerFactory()
+        self.normalizer = factory.get_normalizer("hi")
 
         # Moses Tokenizer
         self.mts = dict()

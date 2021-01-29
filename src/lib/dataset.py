@@ -1,13 +1,14 @@
-import os
-import numpy as np
-from tqdm import tqdm
-from itertools import zip_longest
-from pathlib import Path
 import gzip
+import os
 import random
 import sqlite3
 from collections import OrderedDict
-from typing import Iterable, Iterator, Tuple, List, Union
+from itertools import zip_longest
+from pathlib import Path
+from typing import Iterable, Iterator, List, Tuple, Union
+
+import numpy as np
+from tqdm import tqdm
 
 from lib.misc import IO
 
@@ -18,15 +19,15 @@ MonoSeqRecord = List[Union[int, str]]
 ParallelSeqRecord = Tuple[MonoSeqRecord, MonoSeqRecord]
 TokStream = Union[Iterator[Iterator[str]], Iterator[str]]
 
-def read_parallel(parallel_file:Path):
-    ds = Dataset(['src', 'tgt'])
+def read_parallel(parallel_file:Path, keys=['src', 'tgt']):
+    ds = Dataset(keys)
     with open(parallel_file, 'r') as fr:
-        print('\t\t > Reading parallel data file ...')
+        print('\t\t > Reading parallel data file')
         for line in tqdm(fr):
             x, y = line.strip().split('\t')
             src = list(map(int, x.split()))
             tgt = list(map(int, y.split()))
-            ds.append([src, tgt], keys=['src', 'tgt'])
+            ds.append([src, tgt], keys=keys)
     return ds
 
 class Dataset(object):
