@@ -1,9 +1,11 @@
 from pathlib import Path
+import json
 from typing import List, Union
 from tqdm import tqdm
+from collections import Counter
 
 from nlcodec import Type, learn_vocab, load_scheme, term_freq
-from .misc import Filepath, FileReader
+from .misc import Filepath, FileReader, FileWriter, get_now
 
 
 def get_ngrams(corps:List[List[Union[str, int]]], match_file:Filepath, bpe_file:Filepath,
@@ -88,7 +90,10 @@ class Vocabs(object):
         self.token_idx[token.name] = token.idx
 
     def save(self, work_file):
-        Type.write_out(self.table, work_file)
+        try:
+            Type.write_out(self.table, work_file)
+        except Exception as e:
+            self._write_out(work_file)
 
     def index(self, name:str):
         if name not in self.tokens:
@@ -102,6 +107,17 @@ class Vocabs(object):
 
     def get_indexes(self):
         return set(self.token_idx.values())
+
+    def _write_out(self, work_file:Path):
+        fw = FileWriter(work_file)
+        levels = Counter(v.level for v in self.table)
+        max_level = max(levels.keys())
+        meta = dict(total=len(self.table), levels=levels, max_level=max_level, create=get_now())
+        meta = json.dumps(meta)
+        fw.textline(f'#{meta}')
+        for i, item in enumerate(self.table):
+            fw.textline(item.format())
+        fw.close()
 
     def _reindex(self):
         for ix in range(len(self)):

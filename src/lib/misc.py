@@ -67,9 +67,10 @@ class FileWriter(object):
         self.fw = open(filepath, mode)
         self.tablevel = 0
 
-    def close(self):
-        self.dashline(txt='=', length=75)
-        self.newline()
+    def close(self, add_dashline=False):
+        if add_dashline:
+            self.dashline(txt='=', length=75)
+            self.newline()
         self.fw.close()
 
     def textlines(self, texts:List[Union[str or Path]]):

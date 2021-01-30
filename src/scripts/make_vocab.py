@@ -25,7 +25,7 @@ def save_meta(args, work_dir, vocab_file):
         f'Vocab Type : {args.type}',
     ])
     mw.section('Files :', args.files)
-    mw.close()
+    mw.close(add_dashline=True)
 
 def args_validation(args):
     assert args.work_dir is not None
