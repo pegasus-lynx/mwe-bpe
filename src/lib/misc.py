@@ -8,7 +8,6 @@ from typing import List, Union
 # Defining commonly used types
 Filepath = Union[Path,str]
 
-
 def log(text, ntabs=0):
     print(f"{'    '*ntabs} > {text}")
 
@@ -64,11 +63,13 @@ class FileReader(object):
 
 class FileWriter(object):
 
-    def __init__(self, filepath):
-        self.fw = open(filepath, 'w')
+    def __init__(self, filepath, mode='w'):
+        self.fw = open(filepath, mode)
         self.tablevel = 0
 
     def close(self):
+        self.dashline(txt='=', length=75)
+        self.newline()
         self.fw.close()
 
     def textlines(self, texts:List[Union[str or Path]]):
@@ -76,10 +77,8 @@ class FileWriter(object):
             self.textline(text)
 
     def heading(self, text):
-        self.newline()
         self.textline(text)
         self.textline(f'TIME : {get_now()}')
-        self.newline()
         self.dashline()
         self.newline()
 
@@ -90,17 +89,17 @@ class FileWriter(object):
     def textline(self, text):
         self.fw.write(f'{"    "*self.tablevel}{text}\n')
 
-    def dashline(self):
-        self.fw.write(f'{"-"*50} \n')
+    def dashline(self, txt='-', length=50):
+        self.fw.write(f'{txt*length} \n')
 
     def sectionstart(self, text):
-        self.newline()
         self.textline(text)
         self.dashline()
         self.tablevel += 1
 
     def sectionclose(self):
         self.dashline()
+        self.newline()
         self.tablevel = max(0, self.tablevel-1)
 
     def section(self, heading:str, lines:List):
