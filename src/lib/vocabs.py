@@ -5,41 +5,53 @@ from tqdm import tqdm
 from collections import Counter
 
 from nlcodec import Type, learn_vocab, load_scheme, term_freq
-from .misc import Filepath, FileReader, FileWriter, get_now
+from .misc import Filepath, FileReader, FileWriter, get_now, log
 
 
 def get_ngrams(corps:List[List[Union[str, int]]], match_file:Filepath, bpe_file:Filepath,
                 ngram:int=2, min_freq:int=0, max_ngrams:int=0):
     ngrams = dict()
-    match = Vocabs(match_file)
+    match = Vocabs()
+    match._read_in(match_file)
+    bpe = Vocabs(vocab_file=bpe_file)
+
     indexes = match.get_indexes()
-    base = len(match)+1
+    base = len(bpe)+1
     for corp in corps:
         for sent in tqdm(corp):
-            words = [1 if tok in indexes else 0 for tok in sent]
+            # print(sent)
+            words = [0 for x in sent]
+            for ix, tok in enumerate(sent):
+                if tok in indexes:
+                    words[ix] = 1 
             cwords = [word for word in words]
             for i in range(len(cwords)-2, -1, -1):
                 cwords[i] = 0 if words[i]==0 else cwords[i+1]+words[i]
+            # print(cwords)
             for i, wl in enumerate(cwords):
+                # print(wl)
                 if wl >= ngram:
                     hash_val = 0
                     pbase = 1
                     for x in range(ngram):
                         hash_val += sent[i+x]*pbase
                         pbase*=base
+                    # print(hash_val)
                     if hash_val not in ngrams.keys():
                         ngrams[hash_val] = 0
                     ngrams[hash_val] += 1
+            # break
+        # break
     ngrams_list = [(key,value) for key,value in ngrams.items()]
+    # print(len(ngrams_list))
+    # print(ngrams_list)
     ngrams_list.sort(key=lambda x: x[1], reverse=True)
-    
-    bpe = Vocabs(bpe_file)
     if max_ngrams == 0:
         max_ngrams = len(bpe)
-    ngrams = Vocabs()
+    ngrams_vcb = Vocabs()
     for ngram_pair in ngrams_list:
         hash_val, freq = ngram_pair
-        if len(ngrams) >= max_ngrams or freq < min_freq:
+        if len(ngrams_vcb) >= max_ngrams or freq < min_freq:
             break 
         wlist = []
         while hash_val > 0:
@@ -47,19 +59,23 @@ def get_ngrams(corps:List[List[Union[str, int]]], match_file:Filepath, bpe_file:
             hash_val = hash_val // base
         name = ''.join([bpe.table[x].name for x in wlist])
         kids = [bpe.table[x] for x in wlist]
-        ngrams.append(Type(name, level=1, idx=len(ngrams), freq=freq, kids=kids))
-    return ngrams
+        ngrams_vcb.append(Type(name, level=1, idx=len(ngrams_vcb), freq=freq, kids=kids))
+    log(f'Found {len(ngrams_vcb)} {ngram}-gram [ min_freq : {min_freq}, max_ngrams : {max_ngrams}]', 2)
+    return ngrams_vcb
 
 class Vocabs(object):
-    def __init__(self, vocab_file:Filepath=None, table:List['Type']=[]):
+    def __init__(self, vocab_file:Filepath=None, token_list=[]):
+        # print(f'Init Vocabs : {vocab_file}')
         self.vocab_file = vocab_file
-        self.table = table
+        self.table = []
+        # print(len(token_list), len(self.table))
         self.tokens = set()
         self.token_idx = dict()
         if self.vocab_file is not None:
             scheme = self.load(self.vocab_file)
             self.table = scheme.table
         if len(self.table) > 0:
+            # print(f'Init : {len(self.table)}')
             self.tokens = set([x.name for x in self.table])
             self.token_idx = { x.name:x.idx for x in self.table}
 
@@ -83,8 +99,9 @@ class Vocabs(object):
                 self.append(token)
         self.sort()
 
-    def append(self, token:'Type'):
-        token.idx = len(self)
+    def append(self, token:'Type', reindex:bool=False):
+        if reindex:
+            token = Type(token.name, level=token.level, idx=len(self), freq=token.freq, kids=token.kids)
         self.table.append(token)
         self.tokens.add(token.name)
         self.token_idx[token.name] = token.idx
@@ -108,29 +125,42 @@ class Vocabs(object):
     def get_indexes(self):
         return set(self.token_idx.values())
 
-    def _write_out(self, work_file:Path):
-        fw = FileWriter(work_file)
+    def _read_in(self, vocab_file:Filepath, delim='\t'):
+        fr = open(vocab_file, 'r')
+        # print(self)
+        for line in fr:
+            line = line.strip()
+            if line.startswith('#'):
+                continue
+            cols = line.split(delim)
+            idx, name, level, freq = cols[:4]
+            kids = list(map(int,cols[4].split(' ')))
+            self.append(Type(name, idx=int(idx), freq=int(freq), level=int(level), kids=kids))
+        fr.close()
+
+    def _write_out(self, work_file:Filepath):
+        fw = open(work_file, 'w')
         levels = Counter(v.level for v in self.table)
         max_level = max(levels.keys())
         meta = dict(total=len(self.table), levels=levels, max_level=max_level, create=get_now())
         meta = json.dumps(meta)
-        fw.textline(f'#{meta}')
+        fw.write(f'#{meta}\n')
         for i, item in enumerate(self.table):
-            fw.textline(item.format())
+            fw.write(f'{item.format()}\n')
         fw.close()
 
     def _reindex(self):
         for ix in range(len(self)):
-            self.table[ix].ix = ix
+            self.table[ix].idx = ix
 
     @classmethod
     def trim(cls, vocab, trimmed_size:int):
         vocab.sort()
-        return Vocabs(table=vocab.table[:min(len(vocab), trimmed_size)])
+        return cls(table=vocab.table[:min(len(vocab), trimmed_size)])
 
     @classmethod
     def merge(cls, vocabs:List['Vocabs']):
-        vcb = Vocabs()
+        vcb = cls()
         for vocab in vocabs:
             vcb.add(vocab)
         vcb.sort()
@@ -150,4 +180,3 @@ class Vocabs(object):
     @classmethod
     def load(cls, vocab_file:Filepath):
         return load_scheme(vocab_file)
-

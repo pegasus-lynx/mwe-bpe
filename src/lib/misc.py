@@ -17,6 +17,13 @@ def get_now():
     pos = datetime_str.index('.')
     return datetime_str[:pos]
 
+def make_dir(path:Filepath):
+    path = Path(path)
+    if not path.exists():
+        path.mkdir()
+        log(f'>> Making Directory {path.name}',1)    
+    return path
+
 def read_conf(conf_file:Union[str,Path], conf_type:str='yaml'):
     if type(conf_file) == str:
         conf_file = Path(conf_file)

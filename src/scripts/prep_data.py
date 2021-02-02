@@ -1,13 +1,15 @@
 import argparse
-from pathlib import Path
 from itertools import zip_longest
-from typing import Union, List, Dict
-from nlcodec import load_scheme, EncoderScheme, Type
+from pathlib import Path
+from typing import Dict, List, Union
+
 import numpy as np
-from lib.misc import FileWriter
+from lib.dataset import SqliteFile, TSVData
+from lib.misc import FileWriter, log, Filepath, make_dir
+from nlcodec import EncoderScheme, Type, load_scheme
 from tqdm import tqdm
 
-from lib.dataset import SqliteFile, TSVData
+#  Default script functions --------------------------------------------------
 
 def parse_args():
     parser = argparse.ArgumentParser(prog='scripts.prep', description='Prepare data for NMT experiment given the vocabs')
@@ -20,109 +22,84 @@ def parse_args():
     parser.add_argument('--src_len', type=int, default=0)
     parser.add_argument('--tgt_len', type=int, default=0)
     parser.add_argument('--truncate', type=bool, default=False)
+    parser.add_argument('-m', '--save_mode', type=str, default='101', help='Binary string of \
+                        length 3, on bit saving file as .db, .tsv, .tsv.gz respectively')
+    parser.add_argument('-x', '--save_file', type=str, help='Name of the file to store the processed data files')
     return parser.parse_args()
+
+def save_meta(args, work_dir, work_file):
+    mw = FileWriter(work_dir / Path('meta.txt'), mode='a+')
+    mw.heading('prep_data')
+    mw.section('Work File :', [work_file.name])
+    mw.section('Files :', [
+        f'Soruce Data File  : {args.src_path}',
+        f'Target Data File  : {args.tgt_path}',
+        f'Source Vocab File : {args.src_vocab}',
+        f'Target Vocab File : {args.tgt_vocab}',
+        f'Shared Vocab File : {args.shared_vocab}'
+    ])
+
+    mw.section('Arguments :', [
+        f'Source Len : {args.src_len}',
+        f'Target Len : {args.tgt_len}',
+        f'Truncate : {args.truncate}',
+        f'Save Mode : {args.save_mode} [ {" ".join([x for x, b in zip(suffixes,list(args.save_mode)) if b=="1"])} ]'
+    ])
+    mw.close(add_dashline=True)
 
 def args_validation(args):
     assert args.src_path.exists()
     assert args.tgt_path.exists()
-    
+    assert args.save_file is not None
+    assert len(args.save_mode) == 3
     if args.shared_vocab is not None:
         assert args.shared_vocab.exists()
     else:
-        # assert args.get('src_vocab') is not None 
-        # assert args.get('tgt_vocab') is not None 
         assert args.src_vocab.exists()
         assert args.tgt_vocab.exists()
 
-    # assert args.src_len != 0
-    # assert args.tgt_len != 0
+# ----------------------------------------------------------------------------
+
+suffixes = ['.db', '.tsv', '.tsv.gz']
 
 def pre_process(src_path:Union[Path, str], tgt_path:Union[Path, str], vocab_files:Dict[str,Path],
-                truncate:bool, src_len:int, tgt_len:int, work_file:Path):
+                truncate:bool, src_len:int, tgt_len:int, work_file:Filepath, save_mode:str='101'):
     codecs = {key: load_scheme(value) for (key, value) in vocab_files.items() if value is not None}
+    save_flags = [ False if x=='0' else True for x in list(save_mode)]
 
-    print(f'> Writing {work_file.name} ...')
-    recs = read_parallel_recs(codecs, src_path, tgt_path, truncate, 
-                                src_len, tgt_len, encode_as_ids, encode_as_ids)
-    write_parallel_recs(recs, work_file)
+    for save_flag, suffix in zip(save_flags, suffixes):
+        if save_flag:
+            log('Reading parallel recs', 2)
+            recs = read_parallel_recs(codecs, src_path, tgt_path, truncate, 
+                                src_len, tgt_len, _encode, _encode)
+            save_file = work_file.with_suffix(suffix)
+            log(f'Writing : {save_file.name}', 2)
+            write_parallel_recs(recs, save_file)
 
-
-    if work_file.name.endswith('.db'):
-        work_file = work_file.with_suffix('.tsv')
-    elif work_file.name.endswith('.tsv'):
-        work_file = work_file.with_suffix('.tsv.gz')
-
-    print(f'> Writing {work_file.name} ...')
-    recs = read_parallel_recs(codecs, src_path, tgt_path, truncate, 
-                                src_len, tgt_len, encode_as_ids, encode_as_ids)
-    write_parallel_recs(recs, work_file)
-
-    if work_file.name.endswith('.gz'):
-        return
-
-    work_file = work_file.with_suffix('.tsv.gz')
-    print(f'> Writing {work_file.name} ...')
-    recs = read_parallel_recs(codecs, src_path, tgt_path, truncate, 
-                                src_len, tgt_len, encode_as_ids, encode_as_ids)
-    write_parallel_recs(recs, work_file)
-
-def encode_as_ids(codec, text:str):
+def _encode(codec, text:str):
     ids = codec.encode(text)
     return np.array(ids, dtype=np.int32)
 
-def read_parallel_lines(src_path:Union[Path, str], tgt_path:Union[Path, str]):
-    src_lines = open(src_path, 'r')
-    tgt_lines = open(tgt_path, 'r')
-    recs = ((src.strip(), tgt.strip()) for src, tgt in tqdm(zip_longest(src_lines, tgt_lines)))
-    recs = ((src, tgt) for src, tgt in tqdm(recs) if src and tgt)
-    yield from recs
-
 def read_parallel_recs(codecs: Dict[str,Path], src_path:Path, tgt_path:Path, truncate:bool, 
-                        src_len:int, tgt_len:int, src_tokenizer, tgt_tokenizer):
-    # recs = read_parallel_lines(src_path, tgt_path)
-    
-    if 'shared' in codecs.keys():
-        src_codec = codecs['shared']
-        tgt_codec = codecs['shared']
-    else:
-        src_codec = codecs['src']
-        tgt_codec = codecs['tgt']
-
+                        src_len:int, tgt_len:int, src_tokenizer, tgt_tokenizer):    
+    src_codec = codecs['shared' if 'shared' in codecs.keys() else 'src']
+    tgt_codec = codecs['shared' if 'shared' in codecs.keys() else 'tgt']
     return TSVData.read_raw_parallel_recs(src_path, tgt_path, truncate, src_len, tgt_len, 
                                 lambda x: src_tokenizer(src_codec, x), lambda y: tgt_tokenizer(tgt_codec, y))
-
-    # recs = ((src_tokenizer(src_codec, x), tgt_tokenizer(tgt_codec, y)) for x, y in tqdm(recs))
-    # if truncate:
-    #     recs = ((src[:src_len], tgt[:tgt_len]) for src, tgt in recs)
-    # else:  # Filter out longer sentences
-    #     recs = ((src, tgt) for src, tgt in tqdm(recs) if len(src) <= src_len and len(tgt) <= tgt_len)
-    # return recs    
-
-def write_lines(lines, path):
-    fw = FileWriter(path)
-    fw.textlines(lines)
-    fw.close()
 
 def write_parallel_recs(records, path:Union[str, Path]):
     if path.name.endswith('.db'):
         SqliteFile.write(path, records)
     else:
         TSVData.write_parallel_recs(records, path)
-    # seqs = ((' '.join(map(str, x)), ' '.join(map(str, y))) for x, y in records)
-    # lines = (f'{x}\t{y}' for x,y in seqs)
-    # write_lines(lines, path)
-    # path = Path(str(path).replace('.tsv', '.tsv.gz'))
-    # write_lines(lines, path)
 
 def main():
-    print('Running Scripts ...')
+    log('Starting Script : prep_data')
     args = parse_args()
     args_validation(args)
-    print('\t > Loaded Args')
+    log('> Loaded Args', 1)
 
-    if not args.work_dir.exists():
-        args.work_dir.mkdir()
-        print('\t > Making work dir ...')
+    wdir = make_dir(args.work_dir)
 
     vocab_files = dict()
     if args.shared_vocab is not None:
@@ -131,8 +108,14 @@ def main():
         vocab_files['src'] = args.src_vocab
         vocab_files['tgt'] = args.tgt_vocab
 
+    work_file = wdir / Path(f'{str(args.save_file)}.model')
+
+    log('Processing data files', 1)
     pre_process(args.src_path, args.tgt_path, vocab_files, args.truncate, 
-                args.src_len, args.tgt_len, args.work_dir / Path('train.db'))
+                args.src_len, args.tgt_len, work_file, args.save_mode)
+    log('Process completed')
+    save_meta(args, wdir, work_file)
+    log('Writing meta')
     
 if __name__ == "__main__":
     main()

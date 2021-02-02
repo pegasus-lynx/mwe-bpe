@@ -4,7 +4,7 @@ from collections import Counter
 from pathlib import Path
 from typing import Dict, List, Union
 
-from lib.misc import FileWriter, log
+from lib.misc import FileWriter, log, make_dir
 from lib.vocabs import Vocabs
 from nlcodec import Reseved, Type
 
@@ -44,11 +44,11 @@ def match_vocab(bpe_vocab:Path, word_vocab:Path, work_file:Path, write=True):
             word_vcb.tokens.remove(token)
     for x in bpe_vcb:
         if x.name in word_vcb.tokens:
-            match_vcb.table.append(x)
+            match_vcb.append(x)
         elif x.name.endswith(Reseved.SPACE_TOK[0]) and x.name[:-1] in word_vcb.tokens:
-            match_vcb.table.append(x)
+            match_vcb.append(x)
     if write:
-        match_vcb.save(work_file)
+        match_vcb._write_out(work_file)
     return match_vcb
 
 def main():
@@ -57,10 +57,7 @@ def main():
     args_validation(args)
     log('> Loaded Args', 1)
 
-    wdir = args.work_dir
-    if not wdir.exists():
-        wdir.mkdir()
-        log(f'> Making work dir : {wdir}', 1)
+    wdir = make_dir(args.work_dir)
 
     work_file = wdir / Path(f'match.{args.bpe_vocab.with_suffix(".word.model").name}')
     if args.save_file is not None:
