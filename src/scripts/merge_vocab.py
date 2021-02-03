@@ -15,6 +15,7 @@ def parse_args():
     parser = argparse.ArgumentParser(prog='scripts.merge_vocabs', description='Merges vocab files in order of frequency')
     parser.add_argument('-w', '--work_dir', type=Path, help='Path of the working directory')
     parser.add_argument('-d', '--data_files', type=Path, nargs='+', help='Path of the corpus files')
+    parser.add_argument('-b', '--bpe_file', type=Path, help='Path to the base bpe vocab file')
     parser.add_argument('-s', '--vocab_size', type=int, default=8000, help='Vocab size of the merged file')
     # parser.add_argument('-f', '--min_freqs', type=int, default=0, help='Minimum frequncy upto which the n-grams are to be considered')
     # parser.add_argument('-t', '--max_tokens', type=int, default=0, help='Maximum n-grams to be considered.')
@@ -26,19 +27,23 @@ def save_meta(args, work_dir, work_file):
     mw.heading('merge_vocab')
     mw.section('Work File :', [work_file.name])
     mw.section('Arguments :', [f'Vocab Size : {args.vocab_size}'])
-    mw.section('Vocab Files :', args.data_files)
+    lines = [f'Bpe Vocab File : {args.bpe_file}', 'Other Files :']
+    lines.extend(args.data_files)
+    mw.section('Vocab Files :', lines)
     mw.close(add_dashline=True)
 
 def args_validation(args):
     assert args.work_dir is not None
+    assert args.bpe_file.exists()
     for filepath in args.data_files:
         assert filepath.exists()
 
 # ----------------------------------------------------------------------------
 
-def merge_vocabs(vocab_files:List[Filepath], vocab_size:int=8000, parts:List[int]=[], fparts:List[float]=[]):
+def merge_vocabs(bpe_file:Filepath, vocab_files:List[Filepath], vocab_size:int=8000, parts:List[int]=[], fparts:List[float]=[]):
     # To Do : Implement use of parts and fparts
-    vocabs = []
+    bpe_vocab = Vocabs(bpe_file)
+    vocabs = [bpe_vocab]
     for vocab_file in vocab_files:
         try:
             vcb = Vocabs(vocab_file)
@@ -46,27 +51,21 @@ def merge_vocabs(vocab_files:List[Filepath], vocab_size:int=8000, parts:List[int
             vcb = Vocabs()
             vcb._read_in(vocab_file)
         vocabs.append(vcb)
-    indexes = [0 for x in vocab_files]
+    indexes = [0 for i in range(len(vocab_files)+1)]
     merged_vcb = Vocabs()
     while len(merged_vcb) < vocab_size:
         freqs = [ vocab.table[ix].freq if ix < len(vocab) else 0 for vocab, ix in zip(vocabs, indexes) ]
-        levels = [ vocab.table[ix].level if ix < len(vocab) else 0 for vocab, ix in zip(vocabs, indexes) ]
+        levels = [ vocab.table[ix].level if ix < len(vocab) else 1 for vocab, ix in zip(vocabs, indexes) ]
         min_level = min(levels)
         max_freq = max(freqs)
         if min_level < 1:
             for ix, level in enumerate(levels):
                 if level == min_level:
                     token = vocabs[ix].table[indexes[ix]]
-                    kids = None
-                    if token.kids is not None:
-                        kids = []
-                        for kid in token.kids:
-                            pos = merged_vcb.index(kid.name)
-                            kids.append(merged_vcb.table[pos])
                     if token.name in merged_vcb.tokens:
                         indexes[ix] += 1
-                        continue
-                    merged_vcb.append(Type(token.name, level=token.level, idx=len(merged_vcb), freq=token.freq, kids=kids))
+                        break
+                    merged_vcb.append(Type(token.name, level=token.level, idx=len(merged_vcb), freq=token.freq, kids=None))
                     indexes[ix] += 1
                     break
             continue
@@ -81,6 +80,21 @@ def merge_vocabs(vocab_files:List[Filepath], vocab_size:int=8000, parts:List[int
                     for kid in token.kids:
                         pos = merged_vcb.index(kid.name)
                         kids.append(merged_vcb.table[pos])
+                else:
+                    token_kids = None
+                    try:
+                        token_kids = vocabs[ix].kids_list[indexes[ix]]
+                        kids = []
+                    except Exception:
+                        pass
+                    if token_kids is not None:
+                        for kid in token_kids:
+                            pos = merged_vcb.index(bpe_vocab.table[kid].name)
+                            if pos is not None:
+                                kids.append(merged_vcb.table[pos])
+                if token.name in merged_vcb.tokens:
+                    indexes[ix] += 1
+                    break
                 merged_vcb.append(Type(token.name, level=1, idx=len(merged_vcb), freq=freq, kids=kids))
                 indexes[ix] += 1
                 break
@@ -98,7 +112,7 @@ def main():
         work_file = wdir / Path(args.save_file)
 
     log('> Merging Vocabs', 1)
-    vcb = merge_vocabs(args.data_files, vocab_size=args.vocab_size)
+    vcb = merge_vocabs(args.bpe_file, args.data_files, vocab_size=args.vocab_size)
     vcb.save(work_file)
     log('Proces completed')
     save_meta(args, wdir, work_file)
