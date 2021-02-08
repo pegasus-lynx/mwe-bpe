@@ -37,6 +37,15 @@ def read_conf(conf_file:Union[str,Path], conf_type:str='yaml'):
         return json.load(fr)
     return None
 
+def eval_file(detok_hyp:Path, ref:Path, lowercase=True) -> float:
+    from sacrebleu import corpus_bleu, BLEU
+    detok_lines = IO.get_lines(detok_hyp)
+    ref_lines = [IO.get_lines(ref) if isinstance(ref, Path) else ref]
+    bleu: BLEU = corpus_bleu(sys_stream=detok_lines, ref_streams=ref_lines, lowercase=lowercase)
+    bleu_str = bleu.format()
+    log(f'BLEU {detok_hyp} : {bleu_str}',2)
+    return bleu.score
+
 class FileReader(object):
     def __init__(self, filepaths:List[Path], segmented=True):
         self.filepaths = filepaths
