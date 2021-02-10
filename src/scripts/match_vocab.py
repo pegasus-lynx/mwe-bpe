@@ -43,9 +43,9 @@ def match_vocab(bpe_vocab:Path, word_vocab:Path, work_file:Path, write=True):
         if token in word_vcb.tokens:
             word_vcb.tokens.remove(token)
     for x in bpe_vcb:
-        if x.name in word_vcb.tokens:
-            match_vcb.append(x)
-        elif x.name.endswith(Reseved.SPACE_TOK[0]) and x.name[:-1] in word_vcb.tokens:
+        # if x.name in word_vcb.tokens:
+        #     match_vcb.append(x)
+        if x.name.endswith(Reseved.SPACE_TOK[0]) and x.name[:-1] in word_vcb.tokens:
             match_vcb.append(x)
     if write:
         match_vcb._write_out(work_file)

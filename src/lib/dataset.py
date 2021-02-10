@@ -51,13 +51,15 @@ class Dataset(object):
         return ds
 
     @staticmethod
-    def load(keys, files: dict):
+    def load(keys, files: dict, split=None):
         ''' Loads dataset from files '''
         ds = Dataset(keys)
         for key, filepath in files.items():
             with open(filepath, "r+") as f:
                 for line in f:
                     line = line.strip()
+                    if split is not None:
+                        line = line.split(split)
                     ds.lists[key].append(line)
         return ds
 

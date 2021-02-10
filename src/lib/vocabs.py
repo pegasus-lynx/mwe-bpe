@@ -4,7 +4,7 @@ from typing import List, Union
 from tqdm import tqdm
 from collections import Counter
 
-from nlcodec import Type, learn_vocab, load_scheme, term_freq
+from nlcodec import Type, learn_vocab, load_scheme, term_freq, Reseved
 from .misc import Filepath, FileReader, FileWriter, get_now, log
 
 
@@ -23,7 +23,8 @@ def get_ngrams(corps:List[List[Union[str, int]]], match_file:Filepath, bpe_file:
             words = [0 for x in sent]
             for ix, tok in enumerate(sent):
                 if tok in indexes:
-                    words[ix] = 1 
+                    if ix==0 or bpe.table[sent[ix-1]].name.endswith(Reseved.SPACE_TOK[0]):
+                        words[ix] = 1 
             cwords = [word for word in words]
             for i in range(len(cwords)-2, -1, -1):
                 cwords[i] = 0 if words[i]==0 else cwords[i+1]+words[i]
