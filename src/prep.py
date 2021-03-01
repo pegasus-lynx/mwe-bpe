@@ -1,16 +1,17 @@
 import argparse
 import os
-from ruamel.yaml import YAML
 from pathlib import Path
 from shutil import copyfile
 
-from lib.dataset import read_parallel, Dataset
+from lib.dataset import Dataset, read_parallel
 from lib.misc import FileWriter
+from lib.misc import log
+from lib.misc import read_conf
+from scripts.match_vocab import match_vocab
 from scripts.make_vocab import make_vocabs
-from scripts.full_token import bpe_words as match_words
 from scripts.prep_data import pre_process as prep_data
-from scripts.prep_ngram import get_bigrams as prep_bigrams
 from scripts.prep_ngram import add_bigrams as extend_vocab
+from scripts.prep_ngram import get_bigrams as prep_bigrams
 
 
 def prepare_vocabs(corpus, vocab_dir, max_types, shared=False):
@@ -66,17 +67,17 @@ def prep(conf=None):
     bpe_vocab, word_vocab = prepare_vocabs(corpus, vdir, max_types, shared=shared)
 
     # 2. Get the list of full tokens
-    log('Preparing match word files ...', 1)
+    log('Preparing match word files', 1)
     match_word_files = dict()
     for key in vfilter.keys():
         match_word_files[key] = None
         if vfilter[key]:
             log(f'Matching words for {key}', 2)
             match_word_files[key] = vdir / Path(f'match.{key}.word.model')
-            match_words(bpe_vocab[key], word_vocab[key], match_word_files[key])
+            match_vocab(bpe_vocab[key], word_vocab[key], match_word_files[key])
 
     # 3. Prepare the bpe dataset
-    log('Preparing base datasets ...', 1)
+    log('Preparing base datasets', 1)
     log('Train Dataset', 2)
     prep_data(corpus['train_src'], corpus['train_tgt'], bpe_vocab, conf.get('truncate'), 
                 conf.get('src_len'), conf.get('tgt_len'), ddir / Path('train.base.db') )
@@ -90,7 +91,7 @@ def prep(conf=None):
     parallel_dataset.add(read_parallel(ddir / Path('train.base.tsv')))
     parallel_dataset.add(read_parallel(ddir / Path('valid.base.tsv')))
 
-    log('Preparing extended vocabs ...', 1)
+    log('Preparing extended vocabs', 1)
     mod_vocab = dict()
     for key in vfilter.keys():
         mod_vocab[key] = None
@@ -102,7 +103,7 @@ def prep(conf=None):
             mod_vocab[key] = vdir / Path(str(bpe_vocab[key].name).replace('.model', '.mod.model'))
 
     # 5. Prepare the final dataset
-    log('Preparing final datasets ...', 1)
+    log('Preparing final datasets', 1)
     log('Train Dataset', 2)
     prep_data(corpus['train_src'], corpus['train_tgt'], mod_vocab, conf.get('truncate'), 
                 conf.get('src_len'), conf.get('tgt_len'), ddir / Path('train.db') )
@@ -177,8 +178,7 @@ def conf_validation(conf):
         if not f'max_{key}_bigram_types' in conf.keys():
             conf[f'max_{key}_bigram_types'] = 8000 if key == 'shared' else 4000
 
-def log(text, ntabs=0):
-    print(f"{'    '*ntabs} > {text}")
+
 
 def parse_args():
     parser = argparse.ArgumentParser('src.prep', description='Script to preapre the baseline and bi-gram data.')
@@ -198,9 +198,9 @@ def main():
     if args.config_file is not None:
         conf_file = args.config_file
     work_dir, conf_file = prep_working_dir(args.work_dir, conf_file)
-    log(f'Preparing work_dir : {work_dir} ...')
+    log(f'Preparing work_dir : {work_dir}')
     
-    log(f'Preparing sub dirs : _vocabs, data ...')
+    log(f'Preparing sub dirs : _vocabs, data')
     vocab_dir, data_dir = prep_subdirs(work_dir)
     
     log(f'Setting conf file : {conf_file}')
@@ -208,7 +208,7 @@ def main():
     conf['vocab_dir'] = vocab_dir
     conf['data_dir'] = data_dir
     
-    log('Starting data preparation ...')
+    log('Starting data preparation')
     prep(conf=conf)
 
     os.system(f'touch {work_dir}/_PREPARED')
