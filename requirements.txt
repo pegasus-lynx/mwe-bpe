@@ -44,3 +44,11 @@ uctools==1.3.0
 urllib3==1.26.2
 Werkzeug==1.0.1
 zipp==3.4.0
+beautifulsoup4==4.8.2
+bs4==0.0.1
+fake-useragent==0.1.11
+lxml==4.6.2
+pandas==1.0.3
+python-dateutil==2.8.1
+pytz==2019.3
+soupsieve==2.0
