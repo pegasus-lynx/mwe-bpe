@@ -8,6 +8,13 @@ from typing import List, Union
 # Defining commonly used types
 Filepath = Union[Path,str]
 
+def unhash(hash_val, base):
+    wlist = []
+    while hash_val > 0:
+        wlist.append(hash_val % base)
+        hash_val = hash_val // base
+    return wlist
+
 def log(text, ntabs=0):
     print(f"{'    '*ntabs} > {text}")
 

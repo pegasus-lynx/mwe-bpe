@@ -21,6 +21,8 @@ def parse_args():
     parser.add_argument('-w', '--work_dir', type=Path, help='Working Experiment Directory')
     parser.add_argument('-f', '--min_freq', type=int, default=0, help='Min frequency of the ngrams to be considered')
     parser.add_argument('-a', '--max_ngrams', type=int, default=0, help='Max ngrams to be considered')
+    parser.add_argument('-x', '--sorter', type=str, choices=['freq', 'pmi', 'ngdf', 'ngd'], 
+                        default='freq', help='NGram Sorter Function to be used.')
     # parser.add_argument('-x', '--save_file', type=str)
     return parser.parse_args()
 
@@ -54,19 +56,20 @@ def validate_vocab_files(vocab_files:Dict[str,Union[Path,str]], shared):
         assert vocab_files['tgt'].exists()
 
 def make_ngrams(data_files:List[Filepath], bpe_files:Dict[str,Path], match_files:Dict[str,Path],  
-                work_dir:Filepath, ngram:int=2, shared:bool=False, min_freq:int=0, max_ngrams:int=0):
+                work_dir:Filepath, ngram:int=2, shared:bool=False, min_freq:int=0,
+                max_ngrams:int=0, sorter:str='freq'):
     ds = Dataset(['src', 'tgt'])
     for data_file in data_files:
         ds.add(read_parallel(data_file))
     if shared:
-        shared_vcb = get_ngrams(ds.lists.values(), match_files['shared'], bpe_files['shared'],
+        shared_vcb, _ = get_ngrams(ds.lists.values(), match_files['shared'], bpe_files['shared'],
                                 ngram=ngram, min_freq=min_freq, max_ngrams=max_ngrams)
         shared_vcb._write_out(work_dir / Path(f'ngrams.{ngram}.{bpe_files["shared"].name}'))
     else:
-        src_vcb = get_ngrams([ds.lists['src']], match_files['src'], bpe_files['src'],
+        src_vcb, _ = get_ngrams([ds.lists['src']], match_files['src'], bpe_files['src'],
                                 ngram=ngram, min_freq=min_freq, max_ngrams=max_ngrams)
         src_vcb._write_out(work_dir / Path(f'ngrams.{ngram}.{bpe_files["src"].name}'))
-        tgt_vcb = get_ngrams([ds.lists['tgt']], match_files['tgt'], bpe_files['tgt'],
+        tgt_vcb, _ = get_ngrams([ds.lists['tgt']], match_files['tgt'], bpe_files['tgt'],
                                 ngram=ngram, min_freq=min_freq, max_ngrams=max_ngrams)
         tgt_vcb._write_out(work_dir / Path(f'ngrams.{ngram}.{bpe_files["tgt"].name}'))
 
