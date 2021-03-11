@@ -1,12 +1,12 @@
 from pathlib import Path
 import json
-from typing import List, Union.Dict
+from typing import List, Union, Dict
 from tqdm import tqdm
 from collections import Counter
 import math
 
 from nlcodec import Type, learn_vocab, load_scheme, term_freq, Reseved
-from src.misc.ngd import NGD
+from misc.ngd import NGD
 from .misc import Filepath, FileReader, FileWriter, get_now, log, unhash
 
 
@@ -41,10 +41,11 @@ def get_ngrams(corps:List[List[Union[str, int]]], match_file:Filepath, bpe_file:
                         ngrams[hash_val] = 0
                     ngrams[hash_val] += 1
     
-    ngrams_list = NgramSorters.sort(ngrams, bpe_file, word_file, 
-                                    sorter=sorter, corps=corps)    
-    if max_ngrams == 0:
-        max_ngrams = len(bpe)
+    ngrams_dict = { key:val for key, val in ngrams.items() if val >= min_freq}
+    ngrams_list = NgramSorters.sort(ngrams_dict, bpe_file, word_file, sorter=sorter)    
+    max_ngrams = len(bpe) if max_ngrams == 0 else max_ngrams
+    if len(ngrams_list) > max_ngrams:
+        ngrams_list = ngrams_list[:max_ngrams]
     ngrams_vcb = Vocabs()
     for ngram_pair in ngrams_list:
         hash_val, val = ngram_pair
@@ -57,8 +58,8 @@ def get_ngrams(corps:List[List[Union[str, int]]], match_file:Filepath, bpe_file:
         ngrams_vcb.append(Type(name, level=1, idx=len(ngrams_vcb), freq=freq, kids=kids))
     log(f'Found {len(ngrams_vcb)} {ngram}-gram [ min_freq : {min_freq}, max_ngrams : {max_ngrams}]', 2)
     
-    if len(ngrams_list) > len(bpe_vcb):
-        ngrams_list = ngrams_list[:len(bpe_vcb)]
+    if len(ngrams_list) > len(bpe):
+        ngrams_list = ngrams_list[:len(bpe)]
     return ngrams_vcb, ngrams_list
 
 class NgramSorters(object):
@@ -122,8 +123,9 @@ class NgramSorters(object):
     @classmethod
     def _sort_by_ngd(cls, ngrams:Dict[int,int], bpe_vcb, word_vcb):
         ngrams_list = []
+        base = len(bpe_vcb)+1
         for hash_val in ngrams.keys():
-            wlist = unhash(hash_val)
+            wlist = unhash(hash_val, base)
             x, y = [ bpe_vcb.table[x].name[:-1] for x in wlist[:2] ]
             ngrams_list.append((hash_val, NGD(x,y)))
         ngrams_list.sort(key=lambda x: x[1])
@@ -151,10 +153,9 @@ class NgramSorters(object):
             ngd_num = max([math.log(x) for x in wlist_probs]) - math.log(prob)
             ngd_dec = math.log(ntokens) - min([math.log(x) for x in wlist_probs])
             ngd =  ngd_num / ngd_dec
-            ngrams_list.append((hash_val, pmi))
+            ngrams_list.append((hash_val, ngd))
         ngrams_list.sort(key=lambda x: x[1])
         return ngrams_list
-
 
 class Vocabs(object):
     def __init__(self, vocab_file:Filepath=None, token_list=[]):

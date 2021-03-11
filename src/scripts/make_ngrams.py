@@ -18,8 +18,9 @@ def parse_args():
     parser.add_argument('-s', '--shared', type=bool, default=False, help='True if shared vocabs')
     parser.add_argument('-m', '--match_files', type=str, nargs='+', help='List of pairs : [(shared, src, tgt), Path of the file]')
     parser.add_argument('-b', '--bpe_files', type=str, nargs='+', help='List of pairs : [(shared, src, tgt), Path of the file]')    
+    parser.add_argument('-v', '--word_files', type=str, nargs='+', help='List of pairs : [(shared, src, tgt), Path of the file]')
     parser.add_argument('-w', '--work_dir', type=Path, help='Working Experiment Directory')
-    parser.add_argument('-f', '--min_freq', type=int, default=0, help='Min frequency of the ngrams to be considered')
+    parser.add_argument('-f', '--min_freq', type=int, default=100, help='Min frequency of the ngrams to be considered')
     parser.add_argument('-a', '--max_ngrams', type=int, default=0, help='Max ngrams to be considered')
     parser.add_argument('-x', '--sorter', type=str, choices=['freq', 'pmi', 'ngdf', 'ngd'], 
                         default='freq', help='NGram Sorter Function to be used.')
@@ -56,22 +57,25 @@ def validate_vocab_files(vocab_files:Dict[str,Union[Path,str]], shared):
         assert vocab_files['tgt'].exists()
 
 def make_ngrams(data_files:List[Filepath], bpe_files:Dict[str,Path], match_files:Dict[str,Path],  
-                work_dir:Filepath, ngram:int=2, shared:bool=False, min_freq:int=0,
-                max_ngrams:int=0, sorter:str='freq'):
+                word_files:Dict[str,Path], work_dir:Filepath, ngram:int=2, shared:bool=False, 
+                min_freq:int=0, max_ngrams:int=0, sorter:str='freq'):
     ds = Dataset(['src', 'tgt'])
     for data_file in data_files:
         ds.add(read_parallel(data_file))
     if shared:
         shared_vcb, _ = get_ngrams(ds.lists.values(), match_files['shared'], bpe_files['shared'],
-                                ngram=ngram, min_freq=min_freq, max_ngrams=max_ngrams)
-        shared_vcb._write_out(work_dir / Path(f'ngrams.{ngram}.{bpe_files["shared"].name}'))
+                                    word_files['shared'], ngram=ngram, min_freq=min_freq, 
+                                    max_ngrams=max_ngrams, sorter=sorter)
+        shared_vcb._write_out(work_dir / Path(f'ngrams.{ngram}.{sorter}.{bpe_files["shared"].name}'))
     else:
         src_vcb, _ = get_ngrams([ds.lists['src']], match_files['src'], bpe_files['src'],
-                                ngram=ngram, min_freq=min_freq, max_ngrams=max_ngrams)
-        src_vcb._write_out(work_dir / Path(f'ngrams.{ngram}.{bpe_files["src"].name}'))
+                                word_files['src'], ngram=ngram, min_freq=min_freq, 
+                                max_ngrams=max_ngrams, sorter=sorter)
+        src_vcb._write_out(work_dir / Path(f'ngrams.{ngram}.{sorter}.{bpe_files["src"].name}'))
         tgt_vcb, _ = get_ngrams([ds.lists['tgt']], match_files['tgt'], bpe_files['tgt'],
-                                ngram=ngram, min_freq=min_freq, max_ngrams=max_ngrams)
-        tgt_vcb._write_out(work_dir / Path(f'ngrams.{ngram}.{bpe_files["tgt"].name}'))
+                                word_files['tgt'], ngram=ngram, min_freq=min_freq, 
+                                max_ngrams=max_ngrams, sorter=sorter)
+        tgt_vcb._write_out(work_dir / Path(f'ngrams.{ngram}.{sorter}.{bpe_files["tgt"].name}'))
 
 def main():
     log('Starting script : make_ngrams')
@@ -81,20 +85,21 @@ def main():
 
     bpe_files = make_files_dict(args.bpe_files)
     match_files = make_files_dict(args.match_files)
-    log('> Validating match and bpe files', 1)
+    word_files = make_files_dict(args.word_files)
+    log('> Validating match, bpe and word files', 1)
     validate_vocab_files(bpe_files, args.shared)
     validate_vocab_files(match_files, args.shared)
+    validate_vocab_files(word_files, args.shared)
 
     wdir = make_dir(args.work_dir)
     ndir = make_dir(wdir / Path('ngrams/'))
 
     for ng in args.ngrams:
         log(f'Preparing ngram : {ng}',1)
-        make_ngrams(args.data_files, bpe_files, match_files, ndir, ngram=ng, 
-                    shared=args.shared, min_freq=args.min_freq, max_ngrams=args.max_ngrams)
-    log('Process completed')    
-    # save_meta(args, wdir)
-    # log('Writing meta')
+        make_ngrams(args.data_files, bpe_files, match_files, word_files, ndir,  
+                    ngram=ng, shared=args.shared, min_freq=args.min_freq, 
+                    max_ngrams=args.max_ngrams, sorter=args.sorter)
+    log('Process completed')
 
 if __name__ == "__main__":
     main()
