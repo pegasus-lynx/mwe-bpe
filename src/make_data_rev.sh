@@ -9,7 +9,7 @@ base_dir='../data/exps_/data_v2'
 
 # Setting up directories
 vcb_dir="${base_dir}/vocabs_"
-runs_dir="${base_dir}/runs_"
+runs_dir="${base_dir}/rev_runs_"
 
 # Setting language
 slg='en'  # Source Lang
@@ -75,29 +75,30 @@ for sz in ${sizes[@]}
 do
     vsz=$((1000*$sz))
     cdir="${base_dir}/data.${sz}k"
-    bcdir="${cdir}/base"
+    bcdir="${cdir}/rev_base"
     vcdir="${cdir}/vocabs_"
 
     make_dirs ${cdir}
     make_dirs ${bcdir}
     make_dirs ${vcdir}
 
-    # python -m scripts.prep_data --src_len 512 --tgt_len 512 --truncate True -m 001 --src_vocab ${vcb_dir}/bpe.${sz}k.en.model --tgt_vocab ${vcb_dir}/bpe.${sz}k.hi.model -w ${bcdir} -x valid -s ${val_src} -t ${val_tgt}
-    # python -m scripts.prep_data --src_len 512 --tgt_len 512 --truncate True -m 110 --src_vocab ${vcb_dir}/bpe.${sz}k.en.model --tgt_vocab ${vcb_dir}/bpe.${sz}k.hi.model -w ${bcdir} -x train -s ${train_src} -t ${train_tgt}
-    # python -m scripts.make_ngrams -d ${bcdir}/train.tsv -w ${cdir} -a $vsz -n 2 -m src ${vcb_dir}/match.bpe.${sz}k.en.word.model tgt ${vcb_dir}/match.bpe.${sz}k.hi.word.model -b src ${vcb_dir}/bpe.${sz}k.en.model tgt ${vcb_dir}/bpe.${sz}k.hi.model -x freq
+    python -m scripts.prep_data --src_len 512 --tgt_len 512 --truncate True -m 001 --src_vocab ${vcb_dir}/bpe.${sz}k.hi.model --tgt_vocab ${vcb_dir}/bpe.${sz}k.en.model -w ${bcdir} -x valid -s ${val_src} -t ${val_tgt}
+    python -m scripts.prep_data --src_len 512 --tgt_len 512 --truncate True -m 110 --src_vocab ${vcb_dir}/bpe.${sz}k.hi.model --tgt_vocab ${vcb_dir}/bpe.${sz}k.en.model -w ${bcdir} -x train -s ${train_src} -t ${train_tgt}
+    # python -m scripts.make_ngrams -d ${bcdir}/train.tsv -w ${cdir} -a $vsz -n 2 -m src ${vcb_dir}/match.bpe.${sz}k.hi.word.model tgt ${vcb_dir}/match.bpe.${sz}k.en.word.model -b src ${vcb_dir}/bpe.${sz}k.hi.model tgt ${vcb_dir}/bpe.${sz}k.en.model -x freq
     
-    ngram_modes=('pmi' 'ngdf' 'freq')
-    tokens=($((25*$sz/2)) $(($sz*25)))
+    # ngram_modes=('pmi' 'ngdf' 'freq')
+    ngram_modes=('pmi' 'ngdf')
+    tokens=($((25*$sz/2)) $(($sz*25)) $(($sz*50)))
 
     for mode in ${ngram_modes[@]}
     do
-        # python -m scripts.make_ngrams -d ${bcdir}/train.tsv -w ${cdir} -a $vsz -n 2 -v src ${vcb_dir}/word.max.en.model tgt ${vcb_dir}/word.max.hi.model -m src ${vcb_dir}/match.bpe.${sz}k.en.word.model tgt ${vcb_dir}/match.bpe.${sz}k.hi.word.model -b src ${vcb_dir}/bpe.${sz}k.en.model tgt ${vcb_dir}/bpe.${sz}k.hi.model -x ${mode}
+        python -m scripts.make_ngrams -d ${bcdir}/train.tsv -w ${cdir} -a $vsz -n 2 -v src ${vcb_dir}/word.max.hi.model tgt ${vcb_dir}/word.max.en.model -m src ${vcb_dir}/match.bpe.${sz}k.hi.word.model tgt ${vcb_dir}/match.bpe.${sz}k.en.word.model -b src ${vcb_dir}/bpe.${sz}k.hi.model tgt ${vcb_dir}/bpe.${sz}k.en.model -x ${mode}
         for ns in ${tokens[@]}
         do
             echo 'Done Vocabs'
             # Replacing
-            # python -m scripts.merge_vocab -w ${vcdir} -b ${vcb_dir}/bpe.${sz}k.en.model -d ${cdir}/ngrams/ngrams.2.${mode}.bpe.${sz}k.en.model -s $sz -x vocabs.b2.${mode}.r${ns}.en.model -m replace -t $ns
-            # python -m scripts.merge_vocab -w ${vcdir} -b ${vcb_dir}/bpe.${sz}k.hi.model -d ${cdir}/ngrams/ngrams.2.${mode}.bpe.${sz}k.hi.model -s $sz -x vocabs.b2.${mode}.r${ns}.hi.model -m replace -t $ns 
+            python -m scripts.merge_vocab -w ${vcdir} -b ${vcb_dir}/bpe.${sz}k.en.model -d ${cdir}/ngrams/ngrams.2.${mode}.bpe.${sz}k.en.model -s $sz -x vocabs.b2.${mode}.r${ns}.en.model -m replace -t $ns
+            python -m scripts.merge_vocab -w ${vcdir} -b ${vcb_dir}/bpe.${sz}k.hi.model -d ${cdir}/ngrams/ngrams.2.${mode}.bpe.${sz}k.hi.model -s $sz -x vocabs.b2.${mode}.r${ns}.hi.model -m replace -t $ns 
             # Appending
             # python -m scripts.merge_vocab -w ${vcdir} -b ${vcb_dir}/bpe.${sz}k.en.model -m append -t $ns -d ${cdir}/ngrams/ngrams.2.${mode}.bpe.${sz}k.en.model -s $sz -x vocabs.b2.${mode}.a${ns}.en.model
             # python -m scripts.merge_vocab -w ${vcdir} -b ${vcb_dir}/bpe.${sz}k.hi.model -m append -t $ns -d ${cdir}/ngrams/ngrams.2.${mode}.bpe.${sz}k.hi.model -s $sz -x vocabs.b2.${mode}.a${ns}.hi.model
@@ -108,19 +109,19 @@ done
 echo 'Preparing the runs'
 for sz in ${sizes[@]}
 do
-    cdir="${runs_dir}/${sz}k_b"
+    cdir="${runs_dir}/${sz}k_base"
     ddir="${base_dir}/data.${sz}k/base"
-    # make_dirs $cdir
-    # make_dirs $cdir/data
+    
+    make_dirs $cdir
+    make_dirs $cdir/data
+    touch ${cdir}/_PREPARED ${cdir}/conf.yml 
+    cp ${vcb_dir}/bpe.${sz}k.hi.model ${cdir}/data/nlcodec.src.model
+    cp ${vcb_dir}/bpe.${sz}k.en.model ${cdir}/data/nlcodec.tgt.model
+    cp ${ddir}/train.db ${ddir}/valid.tsv.gz ${cdir}/data/
 
-    # touch ${cdir}/_PREPARED ${cdir}/conf.yml 
-    # cp ${vcb_dir}/bpe.${sz}k.en.model ${cdir}/data/nlcodec.src.model
-    # cp ${vcb_dir}/bpe.${sz}k.hi.model ${cdir}/data/nlcodec.tgt.model
-    # cp ${ddir}/train.db ${ddir}/valid.tsv.gz ${cdir}/data/
-
-    tokens=($((25*$sz/2)) $(($sz*25)))
+    tokens=($((25*$sz/2)) $(($sz*25)) $(($sz*50)))
     # ngram_modes=('pmi' 'ngdf' 'freq')
-    ngram_modes=('ngdf')
+    ngram_modes=('ngdf' 'pmi')
     modes=('r')
     for ns in ${tokens[@]}
     do
@@ -128,9 +129,9 @@ do
         do
             for mode in ${ngram_modes[@]}
             do
-                prep_exp ${runs_dir}/${sz}k_${mode}_${m}${ns} ${base_dir}/data.${sz}k/vocabs_/vocabs.b2.${mode}.${m}${ns}.en.model ${base_dir}/data.${sz}k/vocabs_/vocabs.b2.${mode}.${m}${ns}.hi.model
-                prep_exp ${runs_dir}/${sz}k_${mode}_${m}${ns}_so ${base_dir}/data.${sz}k/vocabs_/vocabs.b2.${mode}.${m}${ns}.en.model ${vcb_dir}/bpe.${sz}k.hi.model 
-                # prep_exp ${runs_dir}/${sz}k_${mode}_${m}${ns}_to ${vcb_dir}/bpe.${sz}k.en.model ${base_dir}/data.${sz}k/vocabs_/vocabs.b2.${mode}.${m}${ns}.hi.model 
+                prep_exp ${runs_dir}/${sz}k_${mode}_${m}${ns} ${base_dir}/data.${sz}k/vocabs_/vocabs.b2.${mode}.${m}${ns}.hi.model ${base_dir}/data.${sz}k/vocabs_/vocabs.b2.${mode}.${m}${ns}.en.model
+                prep_exp ${runs_dir}/${sz}k_${mode}_${m}${ns}_so ${base_dir}/data.${sz}k/vocabs_/vocabs.b2.${mode}.${m}${ns}.hi.model ${vcb_dir}/bpe.${sz}k.en.model 
+                prep_exp ${runs_dir}/${sz}k_${mode}_${m}${ns}_to ${vcb_dir}/bpe.${sz}k.hi.model ${base_dir}/data.${sz}k/vocabs_/vocabs.b2.${mode}.${m}${ns}.en.model 
             done
         done
     done

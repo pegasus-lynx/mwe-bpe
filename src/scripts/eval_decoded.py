@@ -5,6 +5,7 @@ from typing import Dict, List, Union
 from indicnlp.tokenize.indic_detokenize import trivial_detokenize
 from lib.misc import eval_file, log
 
+
 #  Default script functions --------------------------------------------------
 
 def parse_args():
@@ -24,7 +25,7 @@ def args_validation(args):
 # ----------------------------------------------------------------------------
 
 def make_detok(tsv_file:Path):
-    detok_file = tsv_file.with_suffix('.detok')
+    detok_file = tsv_file.parent / Path('detoks') / Path(tsv_file.with_suffix('.detok').name)
     fr = open(tsv_file, 'r')
     fw = open(detok_file, 'w')
     for line in fr:
@@ -40,8 +41,17 @@ def main():
     args_validation(args)
     log('> Loaded Args', 1)
 
+    score_file = args.tsv_file.parent / Path('scores.txt')
     detok_file = make_detok(args.tsv_file)
-    eval_file(detok_file, args.ref_file)
+    bleu_str = eval_file(detok_file, args.ref_file)
+    parts = bleu_str.split(':')
+
+    with open(score_file, 'a') as fr:
+        fr.write(f'{"-"*60}\n')
+        fr.write(f'{args.tsv_file.name}\n')
+        fr.write(f'{parts[0]}\n')
+        fr.write(f'{parts[1]}\n')
+        fr.write('\n')
 
 if __name__ == "__main__":
     main()

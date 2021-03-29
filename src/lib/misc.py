@@ -51,7 +51,7 @@ def eval_file(detok_hyp:Path, ref:Path, lowercase=True) -> float:
     bleu: BLEU = corpus_bleu(sys_stream=detok_lines, ref_streams=ref_lines, lowercase=lowercase)
     bleu_str = bleu.format()
     log(f'BLEU {detok_hyp} : {bleu_str}',2)
-    return bleu.score
+    return f'BLEU {detok_hyp} : {bleu_str}'
 
 class FileReader(object):
     def __init__(self, filepaths:List[Path], segmented=True):
