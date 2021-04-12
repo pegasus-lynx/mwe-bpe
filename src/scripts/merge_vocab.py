@@ -39,7 +39,10 @@ def args_validation(args):
     assert args.work_dir is not None
     assert args.bpe_file.exists()
     for filepath in args.data_files:
-        assert filepath.exists()
+            assert filepath.exists()
+        except Exception as e:
+            print(filepath)
+            raise(e)
     assert len(args.tokens_list) == len(args.data_files)
 
 # ----------------------------------------------------------------------------
@@ -152,7 +155,7 @@ def main():
     log('> Loaded Args', 1)
 
     wdir = make_dir(args.work_dir)
-    work_file = wdir/Path(f'merge.{args.vocab_size//1000}.{"_".join([x.with_suffix("").  for x in args.data_files])}.model')
+    work_file = wdir/Path(f'merge.{args.vocab_size//1000}.{"_".join([str(x.with_suffix("")) for x in args.data_files])}.model')
     if args.save_file is not None:
         work_file = wdir / Path(args.save_file)
 
