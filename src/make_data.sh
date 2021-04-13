@@ -16,10 +16,10 @@ slg='en'  # Source Lang
 tlg='hi'  # Target Lang
 
 # Train and Validation Source and Target Files
-train_src='../data/proc/parallel/split/train.en.txt'
-train_tgt='../data/proc/parallel/split/train.hi.txt'
-val_src='../data/proc/parallel/split/dev.en.txt'
-val_tgt='../data/proc/parallel/split/dev.hi.txt'
+train_src='../data/split/train.en.txt'
+train_tgt='../data/split/train.hi.txt'
+val_src='../data/split/dev.en.txt'
+val_tgt='../data/split/dev.hi.txt'
 
 #Initial Functions
 make_dirs () {

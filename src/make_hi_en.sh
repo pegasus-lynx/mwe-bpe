@@ -1,29 +1,29 @@
 
 # Initial Variabes
-# sizes=(2 4 8 16 32 48)
-sizes=(4)
+sizes=(32)
+# sizes=(1 2 4 8 16 48 64)
 ngram_modes=('pmi' 'ngdf')
 modes=('r')
 
 # Base Dir
-base_dir='../data/exps_/data_v3'
+base_dir='../data/exps_/data_v6'
 
 # Setting up directories
 vcb_dir="${base_dir}/vocabs_"
-rdir="${base_dir}/rev_runs_"
+rdir="${base_dir}/runs_"
 
 # Languages
-sl='hi'
+sl='de'
 tl='en'
 
 vsl='nlcodec.src.model'
 vtl='nlcodec.tgt.model'
 
 # Train and Validation Source and Target Files
-train_src='../data/proc/parallel/split/train.hi.txt'
-train_tgt='../data/proc/parallel/split/train.en.txt'
-val_src='../data/proc/parallel/split/dev.hi.txt'
-val_tgt='../data/proc/parallel/split/dev.en.txt'
+train_src='../data/deen/train.deu.tok'
+train_tgt='../data/deen/train.eng.tok'
+val_src='../data/deen/tests/newstest2014_deen.deu.tok'
+val_tgt='../data/deen/tests/newstest2014_deen.eng.tok'
 
 # Initial Functions
 make_dirs(){
@@ -49,9 +49,9 @@ prep_exp(){
         cp $3 $1/data/${vtl}
         prep_run $1/data 001 valid $val_src $val_tgt
         prep_run $1/data 100 train $train_src $train_tgt
-        touch $1/_PREPARED 
+        touch $1/_PREPARED
     fi
-    echo "Experiment Prepared"
+    echo "Prepared Experiment."
 }
 
 # Starting main script
@@ -60,22 +60,22 @@ make_dirs ${base_dir} ${vcb_dir} ${rdir}
 echo 'Building wrd vocabs'
 src_word_vocab="word.max.${sl}.model"
 tgt_word_vocab="word.max.${tl}.model"
-# python -m scripts.make_vocab -w $vcb_dir -f $train_src -v 300000 -t word -x $src_word_vocab
-# python -m scripts.make_vocab -w $vcb_dir -f $train_tgt -v 300000 -t word -x $tgt_word_vocab
+python -m scripts.make_vocab -w $vcb_dir -f $train_src -v 10000000 -t word -x $src_word_vocab
+# python -m scripts.make_vocab -w $vcb_dir -f $train_tgt -v 10000000 -t word -x $tgt_word_vocab
 
-# echo 'Making BPE Vocabs / Matching bpe vocabs with words'
-# for sz in ${sizes[@]}
-# do
-#     vsz=$((1000*$sz))
-#     vpr="bpe.${sz}k."
+echo 'Making BPE Vocabs / Matching bpe vocabs with words'
+for sz in ${sizes[@]}
+do
+    vsz=$((1000*$sz))
+    vpr="bpe.${sz}k."
 
-#     echo "Building bpe vocab ${vsz}"
-#     python -m scripts.make_vocab -t bpe -v $vsz -w $vcb_dir -f $train_src -x ${vpr}${sl}.model
-#     python -m scripts.make_vocab -t bpe -v $vsz -w $vcb_dir -f $train_tgt -x ${vpr}${tl}.model
-#     echo "Matching bpe vocab ${vsz}"
-#     python -m scripts.match_vocab -w $vcb_dir -v ${vcb_dir}/${src_word_vocab} -b ${vcb_dir}/${vpr}${sl}.model
-#     python -m scripts.match_vocab -w $vcb_dir -v ${vcb_dir}/${tgt_word_vocab} -b ${vcb_dir}/${vpr}${tl}.model
-# done
+    echo "Building bpe vocab ${vsz}"
+    # python -m scripts.make_vocab -t bpe -v $vsz -w $vcb_dir -f $train_src -x ${vpr}${sl}.model
+    # python -m scripts.make_vocab -t bpe -v $vsz -w $vcb_dir -f $train_tgt -x ${vpr}${tl}.model
+    echo "Matching bpe vocab ${vsz}"
+    # python -m scripts.match_vocab -w $vcb_dir -v ${vcb_dir}/${src_word_vocab} -b ${vcb_dir}/${vpr}${sl}.model
+    # python -m scripts.match_vocab -w $vcb_dir -v ${vcb_dir}/${tgt_word_vocab} -b ${vcb_dir}/${vpr}${tl}.model
+done
 
 echo 'Preprocessing dataset files'
 for sz in ${sizes[@]}
@@ -144,4 +144,3 @@ do
         done
     done
 done
-
