@@ -39,10 +39,7 @@ def args_validation(args):
     assert args.work_dir is not None
     assert args.bpe_file.exists()
     for filepath in args.data_files:
-            assert filepath.exists()
-        except Exception as e:
-            print(filepath)
-            raise(e)
+        assert filepath.exists()
     assert len(args.tokens_list) == len(args.data_files)
 
 # ----------------------------------------------------------------------------

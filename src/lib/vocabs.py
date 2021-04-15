@@ -1,161 +1,11 @@
-from pathlib import Path
 import json
-from typing import List, Union, Dict
-from tqdm import tqdm
 from collections import Counter
-import math
+from typing import Dict, List, Union
 
-from nlcodec import Type, learn_vocab, load_scheme, term_freq, Reseved
-from misc.ngd import NGD
-from .misc import Filepath, FileReader, FileWriter, get_now, log, unhash
+from nlcodec import Reseved, Type, learn_vocab, load_scheme, term_freq
 
+from .misc import Filepath, FileReader, FileWriter, get_now, log
 
-def get_ngrams(corps:List[List[Union[str, int]]], match_file:Filepath, bpe_file:Filepath,
-                word_file:Filepath, ngram:int=2, min_freq:int=0, max_ngrams:int=0, 
-                sorter:str='freq'):
-    ngrams = dict()
-    match = Vocabs()
-    match._read_in(match_file)
-    bpe = Vocabs(vocab_file=bpe_file)
-
-    indexes = match.get_indexes()
-    base = len(bpe)+1
-    for corp in corps:
-        for sent in tqdm(corp):
-            words = [0 for x in sent]
-            for ix, tok in enumerate(sent):
-                if tok in indexes:
-                    if ix==0 or bpe.table[sent[ix-1]].name.endswith(Reseved.SPACE_TOK[0]):
-                        words[ix] = 1 
-            cwords = [word for word in words]
-            for i in range(len(cwords)-2, -1, -1):
-                cwords[i] = 0 if words[i]==0 else cwords[i+1]+words[i]
-            for i, wl in enumerate(cwords):
-                if wl >= ngram:
-                    hash_val = 0
-                    pbase = 1
-                    for x in range(ngram):
-                        hash_val += sent[i+x]*pbase
-                        pbase*=base
-                    if hash_val not in ngrams.keys():
-                        ngrams[hash_val] = 0
-                    ngrams[hash_val] += 1
-    
-    ngrams_dict = { key:val for key, val in ngrams.items() if val >= min_freq}
-    ngrams_list = NgramSorters.sort(ngrams_dict, bpe_file, word_file, sorter=sorter)    
-    max_ngrams = len(bpe) if max_ngrams == 0 else max_ngrams
-    if len(ngrams_list) > max_ngrams:
-        ngrams_list = ngrams_list[:max_ngrams]
-    ngrams_vcb = Vocabs()
-    for ngram_pair in ngrams_list:
-        hash_val, val = ngram_pair
-        freq = ngrams[hash_val]
-        if len(ngrams_vcb) >= max_ngrams:
-            break 
-        wlist = unhash(hash_val, base)
-        name = ''.join([bpe.table[x].name for x in wlist])
-        kids = [bpe.table[x] for x in wlist]
-        ngrams_vcb.append(Type(name, level=1, idx=len(ngrams_vcb), freq=freq, kids=kids))
-    log(f'Found {len(ngrams_vcb)} {ngram}-gram [ min_freq : {min_freq}, max_ngrams : {max_ngrams}]', 2)
-    
-    if len(ngrams_list) > len(bpe):
-        ngrams_list = ngrams_list[:len(bpe)]
-    return ngrams_vcb, ngrams_list
-
-class NgramSorters(object):
-    
-    sorters = ['freq', 'pmi', 'ngd', 'ngdf']
-
-    @classmethod
-    def sort(cls, ngrams:Dict[int,int], bpe_file:Filepath=None, 
-                word_file:Filepath=None, sorter:str='freq'):
-        sorter_func = cls.get_sorter(sorter)
-        bpe_vcb = Vocabs(vocab_file=bpe_file) if bpe_file else None
-        word_vcb = Vocabs(vocab_file=word_file) if word_file else None
-        return sorter_func(ngrams, bpe_vcb, word_vcb)
-
-    @classmethod
-    def get_sorter(cls, sorter:str='freq'):
-        if sorter not in cls.sorters:
-            sorter = 'freq'
-        if sorter == 'freq':
-            return cls._sort_by_freq
-        elif sorter == 'pmi':
-            return cls._sort_by_pmi
-        elif sorter == 'ngd':
-            return cls._sort_by_ngd
-        elif sorter == 'ngdf':
-            return cls._sort_by_ngd_freq        
-        return None
-
-    @classmethod
-    def _sort_by_freq(cls, ngrams:Dict[int,int], bpe_vcb=None, word_vcb=None):
-        ngrams_list = [(key, val) for key,val in ngrams.items()]
-        ngrams_list.sort(key=lambda x: x[1], reverse=True)
-        return ngrams_list
-
-    @classmethod
-    def _sort_by_pmi(cls, ngrams:Dict[int,int], bpe_vcb, word_vcb):
-        ntokens = sum([token.freq for token in word_vcb])
-        base = len(bpe_vcb) + 1
-        word_probs = { t.name: t.freq/ntokens for t in word_vcb }
-        
-        ngrams_list = []
-        for hash_val, freq in ngrams.items():
-            wlist = unhash(hash_val, base)
-            wlist_probs = []
-            for x in wlist:
-                name = bpe_vcb.table[x].name
-                idx = word_vcb.index(name[:-1])
-                token = word_vcb.table[idx]
-                wlist_probs.append( token.freq / ntokens )
-            prob = freq / ntokens
-            
-            pmi_num = prob
-            pmi_dec = 1
-            for prob in wlist_probs:
-                pmi_dec *= prob
-            pmi = math.log(pmi_num/pmi_dec)
-            ngrams_list.append((hash_val, pmi))
-        ngrams_list.sort(key=lambda x: x[1], reverse=True)
-        return ngrams_list
-
-    @classmethod
-    def _sort_by_ngd(cls, ngrams:Dict[int,int], bpe_vcb, word_vcb):
-        ngrams_list = []
-        base = len(bpe_vcb)+1
-        for hash_val in ngrams.keys():
-            wlist = unhash(hash_val, base)
-            x, y = [ bpe_vcb.table[x].name[:-1] for x in wlist[:2] ]
-            ngrams_list.append((hash_val, NGD(x,y)))
-        ngrams_list.sort(key=lambda x: x[1])
-        return ngrams_list
-
-    @classmethod
-    def _sort_by_ngd_sent():
-        pass
-
-    @classmethod
-    def _sort_by_ngd_freq(cls, ngrams:Dict[int,int], bpe_vcb, word_vcb):
-        ntokens = sum([token.freq for token in word_vcb])
-        base = len(bpe_vcb) + 1
-        word_probs = { t.name: t.freq/ntokens for t in word_vcb }
-        ngrams_list = []
-        for hash_val, freq in ngrams.items():
-            wlist = unhash(hash_val, base)
-            wlist_probs = []
-            for x in wlist:
-                name = bpe_vcb.table[x].name
-                idx = word_vcb.index(name[:-1])
-                token = word_vcb.table[idx]
-                wlist_probs.append( token.freq / ntokens )
-            prob = freq / ntokens
-            ngd_num = max([math.log(x) for x in wlist_probs]) - math.log(prob)
-            ngd_dec = math.log(ntokens) - min([math.log(x) for x in wlist_probs])
-            ngd =  ngd_num / ngd_dec
-            ngrams_list.append((hash_val, ngd))
-        ngrams_list.sort(key=lambda x: x[1])
-        return ngrams_list
 
 class Vocabs(object):
     def __init__(self, vocab_file:Filepath=None, token_list=[]):
@@ -263,7 +113,7 @@ class Vocabs(object):
         return vcb
 
     @classmethod
-    def make(cls, corpus:List[Union[str, Path]], model_path:Filepath, 
+    def make(cls, corpus:List[Filepath], model_path:Filepath, 
                 vocab_size:int=8000, level:str='bpe'):
         fr = FileReader(corpus, segmented=False)
         corp = fr.unique()
