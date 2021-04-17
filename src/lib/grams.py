@@ -54,7 +54,8 @@ class Grams(object):
     # make shift skip gram : Considers A _ B cases only
     @classmethod
     def get_skipgrams(cls, corps:List[List[Union[str, int]]], match_file:Filepath, bpe_file:Filepath,
-                        word_file:Filepath, min_freq:int=0, max_sgrams:int=0, sorter:str='freq'):
+                        word_file:Filepath, min_freq:int=0, max_corr:float=0.5, 
+                        max_sgrams:int=0, sorter:str='freq'):
         sgrams = dict()
 
         bpe = Vocabs(vocab_file=bpe_file)
@@ -69,13 +70,16 @@ class Grams(object):
             for sent in tqdm(corp):
                 words = cls._filter(sent, indexes, bpe)
                 for i in range(len(words)-2):
-                    if words[i] and words[i+2]:
+                    if sum(words[i:i+3]) == 3:
                         hash_val = cls._hash([sent[i], sent[i+2]], base)
                         if hash_val not in sgrams.keys():
-                            sgrams[hash_val] = 0
-                        sgrams[hash_val] += 1
+                            sgrams[hash_val] = dict()
+                        if sent[i+1] not in sgrams[hash_val].keys():
+                            sgrams[hash_val][sent[i+1]] = 0
+                        sgrams[hash_val][sent[i+1]] += 1
 
-        sgrams = { k:v for k,v in sgrams.items() if v >= min_freq}
+        sgrams = { k:v for k,v in sgrams.items() if sum(v.values()) >= min_freq}
+        sgrams = { k: sum(v.values()) for k,v in sgrams.items() if max(v.values())/sum(v.values()) < max_corr}
         sgrams_list = GramsSorter.sort(sgrams, bpe_file, word_file, sorter=sorter)    
         sgrams_list = sgrams_list[:max_sgrams] if len(sgrams_list) > max_sgrams else sgrams_list
 
@@ -133,6 +137,11 @@ class Grams(object):
             if array[i] != 0:
                 array[i] += array[i+1]
         return array
+
+class GramsFilter(object):
+
+    @classmethod
+    def prob_corr()
 
 class GramsSorter(object):
     
