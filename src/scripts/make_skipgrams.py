@@ -20,9 +20,11 @@ def parse_args():
     parser.add_argument('-b', '--bpe_files', type=str, nargs='+', help='List of pairs : [(shared, src, tgt), Path of the file]')    
     parser.add_argument('-v', '--word_files', type=str, nargs='+', help='List of pairs : [(shared, src, tgt), Path of the file]')
     parser.add_argument('-w', '--work_dir', type=Path, help='Working Experiment Directory')
-    parser.add_argument('-f', '--min_freq', type=int, default=100, help='Min frequency of the skip grams to be considered')
+    
     parser.add_argument('-a', '--max_sgrams', type=int, default=0, help='Max skip grams to be considered')
-    parser.add_argument('-c', '--max_corr', type=float, default=0.5, help='Max correlation alloed for skip token')
+    parser.add_argument('-f', '--min_freq', type=int, default=100, help='Min frequency of the skip grams to be considered')
+    parser.add_argument('-c', '--max_corr', type=float, default=1.0, help='Max correlation alloed for skip token')
+    parser.add_argument('-cw', '--min_center_words', type=int, default=0, help='Atleast "cw" different words must appear in the skip space')
     parser.add_argument('-x', '--sorter', type=str, choices=['freq', 'pmi', 'ngdf', 'ngd'], 
                         default='freq', help='NGram Sorter Function to be used.')
     # parser.add_argument('-x', '--save_file', type=str)
@@ -58,8 +60,9 @@ def validate_vocab_files(vocab_files:Dict[str,Union[Path,str]], shared):
         assert vocab_files['tgt'].exists()
 
 def make_sgrams(data_files:List[Filepath], bpe_files:Dict[str,Path], match_files:Dict[str,Path],  
-                word_files:Dict[str,Path], work_dir:Filepath,shared:bool=False, max_corr:float=0.5,
-                min_freq:int=0, max_sgrams:int=0, sorter:str='freq'):
+                word_files:Dict[str,Path], work_dir:Filepath, shared:bool=False, 
+                max_corr:float=1.0, min_center_words:int=0, min_freq:int=0, 
+                max_sgrams:int=0, sorter:str='freq'):
     ds = Dataset(['src', 'tgt'])
     for data_file in data_files:
         ds.add(read_parallel(data_file))
@@ -68,21 +71,21 @@ def make_sgrams(data_files:List[Filepath], bpe_files:Dict[str,Path], match_files
                                     match_files['shared'], bpe_files['shared'],
                                     word_files['shared'], min_freq=min_freq, 
                                     max_corr=max_corr, max_sgrams=max_sgrams, 
-                                    sorter=sorter)
+                                    min_center_words=min_center_words, sorter=sorter)
         shared_vcb._write_out(work_dir / Path(f'sgrams.{sorter}.corr{max_corr}.{bpe_files["shared"].name}'))
     else:
         src_vcb, _ = Grams.get_skipgrams([ds.lists['src']], 
                                 match_files['src'], bpe_files['src'],
                                 word_files['src'], min_freq=min_freq, 
-                                max_corr=max_corr, max_sgrams=max_sgrams, 
-                                sorter=sorter)
+                                max_corr=max_corr, max_sgrams=max_sgrams,
+                                min_center_words=min_center_words, sorter=sorter)
         src_vcb._write_out(work_dir / Path(f'sgrams.{sorter}.corr{max_corr}.{bpe_files["src"].name}'))
         
         tgt_vcb, _ = Grams.get_skipgrams([ds.lists['tgt']], 
                                 match_files['tgt'], bpe_files['tgt'],
                                 word_files['tgt'], min_freq=min_freq, 
                                 max_corr=max_corr, max_sgrams=max_sgrams, 
-                                sorter=sorter)
+                                min_center_words=min_center_words, sorter=sorter)
         tgt_vcb._write_out(work_dir / Path(f'sgrams.{sorter}.corr{max_corr}.{bpe_files["tgt"].name}'))
 
 def main():
@@ -105,7 +108,8 @@ def main():
     log(f'Preparing skip grams ...',1)
     make_sgrams(args.data_files, bpe_files, match_files, word_files, ndir,  
                 shared=args.shared, min_freq=args.min_freq, max_corr=args.max_corr,
-                max_sgrams=args.max_sgrams, sorter=args.sorter)
+                max_sgrams=args.max_sgrams, min_center_words=args.min_center_words, 
+                sorter=args.sorter)
     log('Process completed')
 
 if __name__ == "__main__":
