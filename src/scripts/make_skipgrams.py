@@ -6,7 +6,7 @@ from typing import Dict, List, Union
 
 from lib.misc import FileWriter, log, Filepath, make_dir
 from lib.vocabs import Vocabs
-from lib.grams import Grams
+from lib.grams import SkipGrams
 from lib.dataset import Dataset, read_parallel
 from nlcodec import Reseved, Type
 
@@ -67,26 +67,26 @@ def make_sgrams(data_files:List[Filepath], bpe_files:Dict[str,Path], match_files
     for data_file in data_files:
         ds.add(read_parallel(data_file))
     if shared:
-        shared_vcb, _ = Grams.get_skipgrams(ds.lists.values(), 
+        shared_vcb, _ = SkipGrams.get_skipgrams(ds.lists.values(), 
                                     match_files['shared'], bpe_files['shared'],
                                     word_files['shared'], min_freq=min_freq, 
                                     max_corr=max_corr, max_sgrams=max_sgrams, 
                                     min_center_words=min_center_words, sorter=sorter)
         shared_vcb._write_out(work_dir / Path(f'sgrams.{sorter}.corr{max_corr}.{bpe_files["shared"].name}'))
     else:
-        src_vcb, _ = Grams.get_skipgrams([ds.lists['src']], 
+        src_vcb, _ = SkipGrams.get_skipgrams([ds.lists['src']], 
                                 match_files['src'], bpe_files['src'],
                                 word_files['src'], min_freq=min_freq, 
                                 max_corr=max_corr, max_sgrams=max_sgrams,
                                 min_center_words=min_center_words, sorter=sorter)
-        src_vcb._write_out(work_dir / Path(f'sgrams.{sorter}.corr{max_corr}.{bpe_files["src"].name}'))
+        src_vcb._write_out(work_dir / Path(f'sgrams.{sorter}.corr{max_corr}.cw{min_center_words}.{bpe_files["src"].name}'))
         
-        tgt_vcb, _ = Grams.get_skipgrams([ds.lists['tgt']], 
+        tgt_vcb, _ = SkipGrams.get_skipgrams([ds.lists['tgt']], 
                                 match_files['tgt'], bpe_files['tgt'],
                                 word_files['tgt'], min_freq=min_freq, 
                                 max_corr=max_corr, max_sgrams=max_sgrams, 
                                 min_center_words=min_center_words, sorter=sorter)
-        tgt_vcb._write_out(work_dir / Path(f'sgrams.{sorter}.corr{max_corr}.{bpe_files["tgt"].name}'))
+        tgt_vcb._write_out(work_dir / Path(f'sgrams.{sorter}.corr{max_corr}.cw{min_center_words}.{bpe_files["tgt"].name}'))
 
 def main():
     log('Starting script : make_sgrams')

@@ -8,9 +8,9 @@ from .misc import Filepath, FileReader, FileWriter, get_now, log
 
 
 class Vocabs(object):
-    def __init__(self, vocab_file:Filepath=None, token_list=[]):
+    def __init__(self, vocab_file:Filepath=None, table=[]):
         self.vocab_file = vocab_file
-        self.table = []
+        self.table = table
         self.tokens = set()
         self.token_idx = dict()
         if self.vocab_file is not None:
@@ -80,14 +80,14 @@ class Vocabs(object):
                 kids = list(map(int,cols[4].split(' ')))
             except Exception:
                 kids = []
-            self.append(Type(name, idx=int(idx), freq=int(freq), level=int(level), kids=None))
+            self.append(Type(name, idx=int(idx), freq=int(freq), level=int(level), kids=kids))
             self.kids_list.append(kids)
         fr.close()
 
     def _write_out(self, work_file:Filepath):
         fw = open(work_file, 'w')
         levels = Counter(v.level for v in self.table)
-        max_level = max(levels.keys())
+        max_level = max(levels)
         meta = dict(total=len(self.table), levels=levels, max_level=max_level, create=get_now())
         meta = json.dumps(meta)
         fw.write(f'#{meta}\n')
@@ -97,11 +97,13 @@ class Vocabs(object):
 
     def _reindex(self):
         for ix in range(len(self)):
-            self.table[ix].idx = ix
+            token = self.table[ix]
+            self.table[ix]= Type(token.name, idx=ix, freq=token.freq, level=token.level, kids=token.kids)
 
     @classmethod
-    def trim(cls, vocab, trimmed_size:int):
-        vocab.sort()
+    def trim(cls, vocab, trimmed_size:int, sort:bool=False):
+        if sort:
+            vocab.sort()
         return cls(table=vocab.table[:min(len(vocab), trimmed_size)])
 
     @classmethod

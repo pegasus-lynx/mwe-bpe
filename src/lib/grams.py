@@ -168,17 +168,17 @@ class SkipGrams(GramsBase):
         sgrams_list = cls.sort(sgrams, bpe_file, word_file, ngrams=ngrams, sorter=sorter)    
         sgrams_list = sgrams_list[:max_sgrams] if len(sgrams_list) > max_sgrams else sgrams_list
 
-        sgram_vcb = Vocabs()
+        sgrams_vcb = Vocabs()
         skip_tok = Reseved.UNK_TOK[0]+Reseved.SPACE_TOK[0]
         for sgram_pair in sgrams_list:
             hash_val, _ = sgram_pair
-            freq = sgrams[hash_val]
-            if len(sgram_vcb) < max_sgrams:
+            freq = sum(sgrams[hash_val].values())
+            if len(sgrams_vcb) < max_sgrams:
                 wlist = cls._unhash(hash_val, base)
-                token = cls._make_token(wlist, bpe, len(sgram_vcb), freq, sep=skip_tok)
-                sgram_vcb.append(token)
-        log(f'Found {len(sgram_vcb)} skip-gram [ min_freq : {min_freq}, max_sgrams : {max_sgrams}]', 2)    
-        return sgram_vcb, sgrams_list
+                token = cls._make_token(wlist, bpe, len(sgrams_vcb), freq, sep=skip_tok)
+                sgrams_vcb.append(token)
+        log(f'Found {len(sgrams_vcb)} skip-gram [ min_freq : {min_freq}, max_sgrams : {max_sgrams}]', 2)    
+        return sgrams_vcb, sgrams_list
 
     @staticmethod
     def _filter(sgrams, min_freq:int=0, max_corr:float=1.0, min_words:int=0):
