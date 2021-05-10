@@ -12,10 +12,10 @@ from .vocabs import Vocabs
 class GramsBase(object):
 
     @staticmethod
-    def _make_token(array, vocab, index, freq, sep=''):
+    def _make_token(array, vocab, index, freq, level=1, sep=''):
         name = sep.join([vocab.table[x].name for x in array])
         kids = [vocab.table[x] for x in array]
-        return Type(name, level=1, idx=index, freq=freq, kids=kids)
+        return Type(name, level=level, idx=index, freq=freq, kids=kids)
 
     @staticmethod
     def _unhash(hash_val, base):
@@ -35,15 +35,15 @@ class GramsBase(object):
         return hash_val
 
     @staticmethod
-    def _make_mask(sent, indexes, vocab):
+    def _make_mask(sent, indexes):
         words = [0] * len(sent)
+        schar = Reseved.SPACE_TOK[0]
         for ix, tok in enumerate(sent):
             if tok in indexes:
                 if ix == 0:
                     words[ix] = 1
                     continue
-                ptok = vocab.table[sent[ix-1]]
-                if ptok.name.endswith(Reseved.SPACE_TOK[0]):
+                if sent[ix-1] in indexes:
                     words[ix] = 1
         return words
 
@@ -85,9 +85,18 @@ class NGrams(GramsBase):
         match._read_in(match_file)
         indexes = match.get_indexes()
 
+        # cnt = 0
+        # for x in indexes:
+        #     name = bpe.table[x].name
+        #     if not name.endswith(Reseved.SPACE_TOK[0]):
+        #         if cnt < 20:
+        #             print(name, x)
+        #         cnt += 1
+        # print(cnt, len(indexes))
+
         for corp in corps:
             for sent in tqdm(corp):
-                words = cls._make_mask(sent, indexes, bpe)
+                words = cls._make_mask(sent, indexes)
                 cwords = cls._cumulate(words)
                 for i, wl in enumerate(cwords):
                     if wl >= ngram:
@@ -146,7 +155,7 @@ class SkipGrams(GramsBase):
 
         for corp in corps:
             for sent in tqdm(corp):
-                words = cls._make_mask(sent, indexes, bpe)
+                words = cls._make_mask(sent, indexes)
                 cwords = cls._cumulate(words)
                 for i in range(len(cwords)):
                     if cwords[i] >= 3:
@@ -169,13 +178,13 @@ class SkipGrams(GramsBase):
         sgrams_list = sgrams_list[:max_sgrams] if len(sgrams_list) > max_sgrams else sgrams_list
 
         sgrams_vcb = Vocabs()
-        skip_tok = Reseved.UNK_TOK[0]+Reseved.SPACE_TOK[0]
+        skip_tok = '*'
         for sgram_pair in sgrams_list:
             hash_val, _ = sgram_pair
             freq = sum(sgrams[hash_val].values())
             if len(sgrams_vcb) < max_sgrams:
                 wlist = cls._unhash(hash_val, base)
-                token = cls._make_token(wlist, bpe, len(sgrams_vcb), freq, sep=skip_tok)
+                token = cls._make_token(wlist, bpe, len(sgrams_vcb), freq, level=3, sep=skip_tok)
                 sgrams_vcb.append(token)
         log(f'Found {len(sgrams_vcb)} skip-gram [ min_freq : {min_freq}, max_sgrams : {max_sgrams}]', 2)    
         return sgrams_vcb, sgrams_list

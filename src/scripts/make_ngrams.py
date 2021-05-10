@@ -6,7 +6,7 @@ from typing import Dict, List, Union
 
 from lib.misc import FileWriter, log, Filepath, make_dir
 from lib.vocabs import Vocabs
-from lib.grams import Grams
+from lib.grams import NGrams
 from lib.dataset import Dataset, read_parallel
 from nlcodec import Reseved, Type
 
@@ -25,6 +25,7 @@ def parse_args():
     parser.add_argument('-a', '--max_ngrams', type=int, default=0, help='Max ngrams to be considered')
     parser.add_argument('-x', '--sorter', type=str, choices=['freq', 'pmi', 'ngdf', 'ngd'], 
                         default='freq', help='NGram Sorter Function to be used.')
+    parser.add_argument('-q', '--save_lists', type=bool, default=False, help="Saves the sorted files list values.")
     # parser.add_argument('-x', '--save_file', type=str)
     return parser.parse_args()
 
@@ -57,26 +58,37 @@ def validate_vocab_files(vocab_files:Dict[str,Union[Path,str]], shared):
         assert vocab_files['src'].exists()
         assert vocab_files['tgt'].exists()
 
+def save_list_file(ngram_list, vcb, filepath):
+    with open(filepath, 'w') as fw:
+        for pair, token in zip(ngram_list, vcb):
+            _, sort_val = pair
+            fw.write(f'{token.name}\t{sort_val}\n')
+
 def make_ngrams(data_files:List[Filepath], bpe_files:Dict[str,Path], match_files:Dict[str,Path],  
                 word_files:Dict[str,Path], work_dir:Filepath, ngram:int=2, shared:bool=False, 
-                min_freq:int=0, max_ngrams:int=0, sorter:str='freq'):
+                min_freq:int=0, max_ngrams:int=0, sorter:str='freq', save_lists:bool=False):
     ds = Dataset(['src', 'tgt'])
     for data_file in data_files:
         ds.add(read_parallel(data_file))
     if shared:
-        shared_vcb, _ = Grams.get_ngrams(ds.lists.values(), match_files['shared'], bpe_files['shared'],
+        shared_vcb, shared_list = NGrams.get_ngrams(ds.lists.values(), match_files['shared'], bpe_files['shared'],
                                     word_files['shared'], ngram=ngram, min_freq=min_freq, 
                                     max_ngrams=max_ngrams, sorter=sorter)
         shared_vcb._write_out(work_dir / Path(f'ngrams.{ngram}.{sorter}.{bpe_files["shared"].name}'))
+        if save_lists:
+            save_list_file(shared_list, shared_vcb, work_dir / Path(f'ngrams.lists.{ngram}.{sorter}.{bpe_files["shared"].name}'))
     else:
-        src_vcb, _ = Grams.get_ngrams([ds.lists['src']], match_files['src'], bpe_files['src'],
+        src_vcb, src_list = NGrams.get_ngrams([ds.lists['src']], match_files['src'], bpe_files['src'],
                                 word_files['src'], ngram=ngram, min_freq=min_freq, 
                                 max_ngrams=max_ngrams, sorter=sorter)
         src_vcb._write_out(work_dir / Path(f'ngrams.{ngram}.{sorter}.{bpe_files["src"].name}'))
-        tgt_vcb, _ = Grams.get_ngrams([ds.lists['tgt']], match_files['tgt'], bpe_files['tgt'],
+        tgt_vcb, tgt_list = NGrams.get_ngrams([ds.lists['tgt']], match_files['tgt'], bpe_files['tgt'],
                                 word_files['tgt'], ngram=ngram, min_freq=min_freq, 
                                 max_ngrams=max_ngrams, sorter=sorter)
         tgt_vcb._write_out(work_dir / Path(f'ngrams.{ngram}.{sorter}.{bpe_files["tgt"].name}'))
+        if save_lists:
+            save_list_file(src_list, src_vcb, work_dir / Path(f'ngrams.lists.{ngram}.{sorter}.{bpe_files["src"].name}'))
+            save_list_file(tgt_list, tgt_vcb, work_dir / Path(f'ngrams.lists.{ngram}.{sorter}.{bpe_files["tgt"].name}'))
 
 def main():
     log('Starting script : make_ngrams')
@@ -99,7 +111,7 @@ def main():
         log(f'Preparing ngram : {ng}',1)
         make_ngrams(args.data_files, bpe_files, match_files, word_files, ndir,  
                     ngram=ng, shared=args.shared, min_freq=args.min_freq, 
-                    max_ngrams=args.max_ngrams, sorter=args.sorter)
+                    max_ngrams=args.max_ngrams, sorter=args.sorter, save_lists=args.save_lists)
     log('Process completed')
 
 if __name__ == "__main__":

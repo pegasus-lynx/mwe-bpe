@@ -10,7 +10,7 @@ from .misc import Filepath, FileReader, FileWriter, get_now, log
 class Vocabs(object):
     def __init__(self, vocab_file:Filepath=None, table=[]):
         self.vocab_file = vocab_file
-        self.table = table
+        self.table = []
         self.tokens = set()
         self.token_idx = dict()
         if self.vocab_file is not None:
@@ -68,8 +68,6 @@ class Vocabs(object):
 
     def _read_in(self, vocab_file:Filepath, delim='\t'):
         fr = open(vocab_file, 'r')
-        # print(self)
-        self.kids_list = []
         for line in fr:
             line = line.strip()
             if line.startswith('#'):
@@ -80,8 +78,7 @@ class Vocabs(object):
                 kids = list(map(int,cols[4].split(' ')))
             except Exception:
                 kids = []
-            self.append(Type(name, idx=int(idx), freq=int(freq), level=int(level), kids=kids))
-            self.kids_list.append(kids)
+            self.append(Type(name, idx=int(idx), freq=int(freq), level=int(level), kids=None))
         fr.close()
 
     def _write_out(self, work_file:Filepath):

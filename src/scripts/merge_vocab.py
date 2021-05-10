@@ -131,7 +131,7 @@ def merge_vocabs_by_replace(bpe_file:Filepath, vocab_files:List[Filepath], token
         for ix, token in enumerate(vocab):
             if ix >= ntokens:
                 break
-            merged_vocab.append(Type(token.name, level=1, idx=len(merged_vocab), freq=token.freq, kids=token.kids))        
+            merged_vocab.append(Type(token.name, level=token.level, idx=len(merged_vocab), freq=token.freq, kids=token.kids))        
     return merged_vocab
 
 def merge_vocabs(bpe_file:Filepath, vocab_files:List[Filepath], vocab_size:int=8000, mode:str='freq', tokens_list:List[int]=[]):
