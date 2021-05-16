@@ -78,7 +78,7 @@ class Vocabs(object):
                 kids = list(map(int,cols[4].split(' ')))
             except Exception:
                 kids = []
-            self.append(Type(name, idx=int(idx), freq=int(freq), level=int(level), kids=None))
+            self.append(Type(name, idx=int(idx), freq=int(freq), level=int(level), kids=kids))
         fr.close()
 
     def _write_out(self, work_file:Filepath):

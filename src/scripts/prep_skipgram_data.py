@@ -210,7 +210,7 @@ def _encode(seq, sgrams, codec):
         if chash in shashs.keys():
             nseq.append(size + shashs[chash])
             nseq.append(seq[i+1])
-            nseq.append(0)
+            nseq.append(1)
             flag = 2
         else:
             nseq.append(x)
