@@ -1,6 +1,6 @@
 """ Utils for processing datasets """
 
-__author__ = "Dipesh Kumar"
+__author__ = ""
 
 from abc import ABC, abstractmethod, abstractstaticmethod
 from pathlib import Path

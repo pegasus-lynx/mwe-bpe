@@ -5,8 +5,8 @@ from tqdm import tqdm
 
 if __name__ == '__main__':
     files = {
-        'src': Path('/home/parzival/Repos/bigram-bpe/data/proc/parallel/filtered/train.en.txt'),
-        'tgt': Path('/home/parzival/Repos/bigram-bpe/data/proc/parallel/filtered/train.hi.txt')
+        'src': Path('/home/data/proc/parallel/filtered/train.en.txt'),
+        'tgt': Path('/home/data/proc/parallel/filtered/train.hi.txt')
     }
 
     keys = ['src', 'tgt']
@@ -52,18 +52,18 @@ if __name__ == '__main__':
 
     print('Writing train files')
     Dataset.save(train_ds, {
-        'src': Path('/home/parzival/Repos/bigram-bpe/data/proc/parallel/split/train.en.txt'),
-        'tgt': Path('/home/parzival/Repos/bigram-bpe/data/proc/parallel/split/train.hi.txt')
+        'src': Path('/home/data/proc/parallel/split/train.en.txt'),
+        'tgt': Path('/home/data/proc/parallel/split/train.hi.txt')
     })
 
     print('Writing dev files')
     Dataset.save(dev_ds, {
-        'src': Path('/home/parzival/Repos/bigram-bpe/data/proc/parallel/split/dev.en.txt'),
-        'tgt': Path('/home/parzival/Repos/bigram-bpe/data/proc/parallel/split/dev.hi.txt')
+        'src': Path('/home/data/proc/parallel/split/dev.en.txt'),
+        'tgt': Path('/home/data/proc/parallel/split/dev.hi.txt')
     })
 
     print('Writing test files')
     Dataset.save(test_ds, {
-        'src': Path('/home/parzival/Repos/bigram-bpe/data/proc/parallel/split/test.en.txt'),
-        'tgt': Path('/home/parzival/Repos/bigram-bpe/data/proc/parallel/split/test.hi.txt')
+        'src': Path('/home/data/proc/parallel/split/test.en.txt'),
+        'tgt': Path('/home/data/proc/parallel/split/test.hi.txt')
     })

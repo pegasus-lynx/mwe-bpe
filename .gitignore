@@ -1,6 +1,7 @@
 # Excluding dataset, embeddings and processed files
 /data/*
 /results/*
+/details/*
 
 # Excluding .vscode
 *settings.json

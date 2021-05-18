@@ -1,6 +1,6 @@
 """ Utils for tokenizing the text """
 
-__author__ = "Dipesh Kumar"
+__author__ = ""
 
 import json
 import re
