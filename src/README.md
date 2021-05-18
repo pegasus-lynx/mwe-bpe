@@ -2,12 +2,15 @@
 
 This directory consists of sub-modules that are required for the data preparation task. The directory consists of two sub-modules : 
 - **lib** : Contains the modules and classes for Vocabs, Tokenizer, Dataset, File and other misc function.
+- **analysis** : Consists of scripts for carrying out the analysis of the results, coverage and comparision of the ngrams and skipgrams 
 - **scripts** : Contains the scripts that perform unit data preparation operations. It consists of the following scripts:
   - **make_vocab** : Makes char/bpe/word vocabs given the dataset files and parameters
   - **match_vocab** : For matching the bpe tokens to a work token file
   - **merge_vocab** : Used for merging vocab files to a bpe vocab file (merged by frequency)
   - **make_ngrams** : Used for preparing ngram vocabs using the bpe, match files and processed datafiles
+  - **make_skipgrams** : Similar to **make_ngrams**, used for preparing skipgram vocabs using the bpe, match, word vocab files and processed datafiles
   - **prep_data** : Prepares data in the indexed format which can be used for training
+  - **eval_decoded** : Utility script for evaluation and detokenization of the .out.tsv files (output of the experiment)
 
 
 ## Process 
@@ -36,11 +39,16 @@ python -m scripts.prep_data --src_len 512 --tgt_len 512 --truncate True  -s ../d
 
 python -m scripts.prep_data --src_len 512 --tgt_len 512 --truncate True  -s ../data/dev.en.txt -t ../data/dev.hi.txt -m 110 --src_vocab ../data/bpe.48k.en.model --tgt_vocab ../data/bpe.48k.hi.model -w path/to/work/dir -x train
 ```
-- Use prepared datafiles and the matched token files to generate the nram vocabs
+- Use prepared datafiles and the matched token files to generate the ngram vocabs
 ```
 python -m scripts.make_ngrams -d ../data/data.48k/train.tsv ../data/data.48k/valid.tsv -w ../data/data.48k -a 16000 -n 2 3 -m src ../data/match.bpe.48k.en.word.model tgt ../data/match.bpe.48k.hi.word.model -b src ../data/bpe.48k.en.model tgt ../data/bpe.48k.hi.model
 ```
-- Merge ngram vocabs to the main bpe vocab file
+- Similarly we can use the following to generate the sgram vocabs
+```
+python -m scripts.make_skipgrams -w ../data/data.8k -a 4000 -x pmi -d ../data/data.8k/base/train.tsv -v src ../data/vocabs_/word.max.hi.model tgt ../data/vocabs_/word.max.en.model -b src ../data/vocabs_/bpe.8k.hi.model tgt ../data/vocabs_/bpe.8k.en.model -m src ../data/vocabs_/match.bpe.8k.hi.word.model tgt ../data/vocabs_/match.bpe.8k.en.word.model -c 0.1 -cw 15
+```
+
+- Merge ngram / skipgram vocabs to the main bpe vocab file
 ```
 python -m scripts.merge_vocab -w ../data/data.48k -b ../data/bpe.48k.en.model -d ../data/ngrams/ngrams.2.bpe.48k.en.model -s 48000 -x vocabs.b2.en.model
 
@@ -117,6 +125,23 @@ Prepares ngram vocabs from the prepared data files, bpe vocab files and match fi
 - -b, --bpe_files, type=str, nargs='+' : List of pairs : [(shared, src, tgt), Path of the file]    
 - -f, --min_freq, type=int, default=0 : Min frequency of the ngrams to be considered
 - -a, --max_ngrams, type=int, default=0 : Max ngrams to be considered
+
+### make_skipgrams
+
+Prepares skipgram vocabs from the prepared data files, bpe vocab files and match files
+
+**Arguments**
+- -w, --work_dir, type=Path : Path to the working directory
+- -d, --data_files, type=Path, nargs='+' : List of processed dataset files [The file must be in .tsv format]
+- -s, --shared, type=bool, default=False : True if shared vocabs
+- -m, --match_files, type=str, nargs='+' : List of pairs : [(shared, src, tgt), Path of the match file]
+- -v, --word_files, type=str, nargs='+' : List of pairs : [(shared, src, tgt), Path of the word vocab file]
+- -b, --bpe_files, type=str, nargs='+' : List of pairs : [(shared, src, tgt), Path of the bpe vocab file]    
+- -f, --min_freq, type=int, default=0 : Min frequency of the ngrams to be considered
+- -a, --max_ngrams, type=int, default=0 : Max ngrams to be considered
+- -c, --max_corr, type=float, default=1.0 : Max correlation alloed for skip token
+- -cw, --min_center_words, type=int, default=0 : Atleast "cw" different words must appear in the skip space
+- -x, --sorter, type=str, choices=['freq', 'pmi', 'ngdf'], default='freq' : NGram Sorter Function to be used
 
 ### merge_vocab
 
