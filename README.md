@@ -1,4 +1,4 @@
-# bigram-bpe
+# BPE with N-Grams and Skip-Grams
 
 This repository consists of scripts and files used for preparing experiments for the paper.
 
