@@ -4,6 +4,7 @@ from typing import Dict, List, Union
 import math
 
 from lib.misc import FileReader, FileWriter, log, make_dir
+from lib.misc import ScriptFuncs as Sf
 from nlcodec import load_scheme
 from lib.vocabs import Vocabs
 from lib.stat import StatLib
@@ -42,22 +43,6 @@ def args_validation(args):
     assert len(args.vocabs) % 2 == 0
     assert len(args.word_vocabs) % 2 == 0
 
-def make_files_dict(file_str:List[str]):
-    files = dict()
-    for i in range(0, len(file_str), 2):
-        files[file_str[i]] = Path(file_str[i+1])
-    return files
-
-def validate_vocab_files(vocab_files:Dict[str,Union[Path,str]], shared):
-    if shared:
-        assert 'shared' in vocab_files.keys()
-        assert vocab_files['shared'].exists()
-    else:
-        assert 'src' in vocab_files.keys()
-        assert 'tgt' in vocab_files.keys()
-        assert vocab_files['src'].exists()
-        assert vocab_files['tgt'].exists()
-
 # ----------------------------------------------------------------------------
 
 def load_vocabs(vocab_files):
@@ -71,7 +56,6 @@ def load_vocabs(vocab_files):
 def make_lists(ngrams, bpe, word, sorter:str, save_file):
     assert sorter in ['pmi', 'ngdf']
     sorter_func = GramsSorter.get_sorter(sorter)
-
     ntokens = StatLib.ntokens(word)
     indexes = StatLib.ngrams2matches(ngrams, bpe)
     ngfreqs = StatLib.ngrams2hashes(ngrams, bpe)
@@ -237,23 +221,23 @@ def main():
     log(f'> Work Dir : {wdir}', 1)
 
     log(f'> Validating Vocab Files', 1)
-    bpe_files = make_files_dict(args.vocabs)
-    validate_vocab_files(bpe_files, args.shared)
+    bpe_files = Sf.make_files_dict(args.vocabs)
+    Sf.validate_vocab_files(bpe_files, args.shared)
     bpes = load_vocabs(bpe_files)
 
     log(f'> Validating Word Vocab Files', 1)
-    word_files = make_files_dict(args.word_vocabs)
-    validate_vocab_files(word_files, args.shared)
+    word_files = Sf.make_files_dict(args.word_vocabs)
+    Sf.validate_vocab_files(word_files, args.shared)
     words = load_vocabs(word_files)
 
     log(f'> Validating Trigram Files', 1)
-    trigram_files = make_files_dict(args.trigrams)
-    validate_vocab_files(trigram_files, args.shared)
+    trigram_files = Sf.make_files_dict(args.trigrams)
+    Sf.validate_vocab_files(trigram_files, args.shared)
     trigrams = load_vocabs(trigram_files)
 
     log(f'> Validating Bigram Files', 1)
-    bigram_files = make_files_dict(args.bigrams)
-    validate_vocab_files(bigram_files, args.shared)
+    bigram_files = Sf.make_files_dict(args.bigrams)
+    Sf.validate_vocab_files(bigram_files, args.shared)
     bigrams = load_vocabs(bigram_files)
 
     analyze(args.data_file, bpes, words, bigrams, trigrams, args.sorter, wdir, args.shared)
