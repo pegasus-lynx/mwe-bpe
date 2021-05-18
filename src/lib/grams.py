@@ -51,8 +51,15 @@ class GramsBase(BaseFuncs):
         return probs
 
     @staticmethod
-    def _wlist_to_windexes(wlist, bpe, words):
-        return [words.index(bpe.table[x].name[:-1] for x in wlist)]
+    def _wlist_to_windexes(wlist, bpe, words, debug=False):
+        indexes = []
+        for x in wlist:
+            name = bpe.table[x].name
+            index = words.index(name[:-1])
+            indexes.append(index)
+        if debug:
+            print(indexes)
+        return indexes
 
 
 class NGrams(GramsBase):
@@ -277,10 +284,22 @@ class GramsNormalizer(GramsBase):
         norm_vals = dict()
         for hv, val in trigram_vals.items():
             wlist = cls._unhash(hv, base)
-            bilist = [cls._hash(wlist[i:i+2]) for i in range(len(wlist)-1)]
+            bilist = [cls._hash(wlist[i:i+2], base) for i in range(len(wlist)-1)]
             bivals = [bigram_vals[x] for x in bilist]
             norm_vals[hv] = min(bivals)
         return norm_vals
+
+    @classmethod
+    def avg_normalize(cls, trigram_vals, bigram_vals, bpe):
+        base = len(bpe)+1
+        norm_vals = dict()
+        for hv, val in trigram_vals.items():
+            wlist = cls._unhash(hv, base)
+            bilist = [cls._hash(wlist[i:i+2], base) for i in range(len(wlist)-1)]
+            bivals = [bigram_vals[x] for x in bilist]
+            norm_vals[hv] = sum(bivals) / len(bivals)
+        return norm_vals
+
 
     @classmethod
     def bifreq_normalize(cls, trigram_vals, bigram_freqs, bpe):
@@ -288,8 +307,9 @@ class GramsNormalizer(GramsBase):
         norm_vals = dict()
         for hv, val in trigram_vals.items():
             wlist = cls._unhash(hv, base)
-            bilist = [cls._hash(wlist[i:i+2]) for i in range(len(wlist)-1)]
-            norm_vals[hv] = val - math.log(1+max(bilist)-min(bilist))
+            bilist = [cls._hash(wlist[i:i+2], base) for i in range(len(wlist)-1)]
+            bifreqs = [bigram_freqs[x] for x in bilist]
+            norm_vals[hv] = val - math.log(1 + max(bifreqs)-min(bifreqs))
         return norm_vals
 
     @classmethod
@@ -299,6 +319,11 @@ class GramsNormalizer(GramsBase):
         for hv, val in trigram_vals.items():
             wlist = cls._unhash(hv, base)
             windexes = cls._wlist_to_windexes(wlist, bpe, words)
-            wfreqs = [words.table[x].freq for x in windexes]
+            try:
+                wfreqs = [words.table[x].freq for x in windexes]
+            except Exception as e:
+                print([bpe.table[x].name for x in wlist])
+                cls._wlist_to_windexes(wlist, bpe, words, True)
+                raise(e)
             norm_vals[hv] = val - math.log(1 + (max(wfreqs)-min(wfreqs)))
         return norm_vals

@@ -3,7 +3,7 @@ import json
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import List, Union
+from typing import List, Union, Dict
 
 # Defining commonly used types
 Filepath = Union[Path,str]
@@ -37,11 +37,11 @@ def read_conf(conf_file:Union[str,Path], conf_type:str='yaml'):
         return json.load(fr)
     return None
 
-def eval_file(detok_hyp:Path, ref:Path, lowercase=True) -> float:
+def eval_file(detok_hyp:Path, ref:Path, lowercase=True):
     from sacrebleu import corpus_bleu, BLEU
     detok_lines = IO.get_lines(detok_hyp)
     ref_lines = [IO.get_lines(ref) if isinstance(ref, Path) else ref]
-    bleu: BLEU = corpus_bleu(sys_stream=detok_lines, ref_streams=ref_lines, lowercase=lowercase)
+    bleu = corpus_bleu(sys_stream=detok_lines, ref_streams=ref_lines, lowercase=lowercase)
     bleu_str = bleu.format()
     log(f'BLEU {detok_hyp} : {bleu_str}',2)
     return f'BLEU {detok_hyp} : {bleu_str}'
@@ -213,3 +213,23 @@ class IO:
                     log.warning(f"Coould not delete {path}")
         except:
             log.exception(f"Error while clearning up {path}")
+
+class ScriptFuncs(object):
+
+    @staticmethod
+    def validate_vocab_files(vocab_files:Dict[str,Union[Path,str]], shared):
+        if shared:
+            assert 'shared' in vocab_files.keys()
+            assert vocab_files['shared'].exists()
+        else:
+            assert 'src' in vocab_files.keys()
+            assert 'tgt' in vocab_files.keys()
+            assert vocab_files['src'].exists()
+            assert vocab_files['tgt'].exists()
+
+    @staticmethod
+    def make_files_dict(file_str:List[str]):
+        files = dict()
+        for i in range(0, len(file_str), 2):
+            files[file_str[i]] = Path(file_str[i+1])
+        return files

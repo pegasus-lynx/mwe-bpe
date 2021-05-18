@@ -34,14 +34,14 @@ class StatLib(BaseFuncs):
 
     @staticmethod
     def ngrams2hashes(ngrams, bpe):
-        ngrams_freq = {}
+        ngram_freqs = {}
         base = len(bpe) + 1
         for token in ngrams:
             name = token.name.replace(Reseved.SPACE_TOK[0], f'{Reseved.SPACE_TOK[0]} ' )
             parts = name.strip().split()
             indexes = [bpe.index(part) for part in parts]
             hash_val = BaseFuncs._hash(indexes, base)
-            ngrams_freq[hash_val] = token.freq
+            ngram_freqs[hash_val] = token.freq
         return ngrams_freq
 
     @staticmethod
@@ -55,6 +55,21 @@ class StatLib(BaseFuncs):
                 if ix is not None:
                     indexes.add(ix)
         return indexes
+
+    @staticmethod
+    def sgrams2hashes(sgrams, bpe):
+        sgram_freqs = {}
+        base = len(bpe) + 1
+        for token in sgrams:
+            parts = token.name.strip().split('*')
+            indexes = [bpe.index(part) for part in parts]
+            hash_val = BaseFuncs._hash(indexes, base)
+            sgram_freqs[hash_val] = token.freq
+        return sgram_freqs
+
+    @staticmethod
+    def sgrams2matches():
+        pass
 
     @staticmethod
     def ntokens(vocab):
