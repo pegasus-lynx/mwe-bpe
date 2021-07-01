@@ -199,11 +199,27 @@ class SkipScheme(BPEScheme):
     skip_tok = '▂' # U+2582 ??
     
     def __init__(self, table:List['Type']):
-        pass
+        super().__init__(table=table)
+        self.root = self.make_vocab_prefix_trie(self.table)
+        assert self.unk_idx
 
-    @classmethod
-    def encode_str(cls, line:str) -> List[str]:
-        pass
+    def encode_str(self, line:str) -> List[str]:
+        seq = self.space_char.join(line.strip().split()) + self.space_char
+        res: List[int] = []
+
+        data_node, data_idx = None, -1
+        prev_node, idx = self.root, 0
+
+        ahead_pairs = []
+        ahead_node, ahead_idx = self.root, 0
+
+        pos = 0
+        while pos < len(seq):
+            if prev_node.has_data:
+                data_node = prev_node
+                data_idx = idx
+            if self.skip_tok in prev_node.kids:
+                pass
 
     @classmethod
     def decode_str(cls, seq:List[str]) -> str:
@@ -214,7 +230,7 @@ class SkipScheme(BPEScheme):
                     sgram:Tuple[int,int]) -> Dict[str, Dict[str,int]]:
         sgram_freqs = dict()
         _, skip = sgram
-        skip_str = cls.space_char.join([cls.skip_tok]*skip)
+        skip_str = cls.space_char.join([cls.skip_tok]*skip) + cls.space_char
         for line in tqdm(data, mininterval=1):
             words = WordScheme.encode_str(line)
             nwords = len(words)
@@ -324,7 +340,7 @@ class SkipScheme(BPEScheme):
 class MWEScheme(BPEScheme):
     pass
 
-# --------------------------------------------------------------------------------------------------- #
+# --------------------------------------------------------------------------- #
 
 SCHEMES_REGISTRY = {
     'char': CharScheme,
