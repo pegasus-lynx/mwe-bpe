@@ -1,4 +1,5 @@
 import collections as coll
+from logging import makeLogRecord
 from tqdm import tqdm
 import functools as fn
 from nlcodec import Type, Reseved, CharScheme, WordScheme, BPEScheme
@@ -6,6 +7,7 @@ from typing import Iterator, Optional, Dict, Tuple, List, Union
 
 NGRAM_MIN_FREQ = 100
 SKIPGRAM_MIN_FREQ = 100
+MWE_MIN_FREQ = 100
 
 class PMIFuncs():
 
@@ -149,15 +151,16 @@ class NgramScheme(BPEScheme):
         return filtered
 
     @classmethod
-    def learn(cls, data:Iterator[str], vocab_size:int=0, ngrams:List[int]=None, 
-            max_ngrams:int=0, merge_func:str='freq', toks_list:List[int]=[],
-            min_freq:int=NGRAM_MIN_FREQ) -> List['Type']:
-
+    def get_ngrams_lists(cls, data:Iterator[str], ngrams:List[int]=None, 
+                        merge_func:str='freq', min_freq:int=NGRAM_MIN_FREQ, 
+                        vocab_size:int=0, bpe_vocab:List['Type']=None):
         assert ngrams is not None
+        assert vocab_size != 0 or bpe_vocab is not None
         assert merge_func == 'freq' or merge_func in PMIFuncs.ngram_variants
-        assert len(toks_list) == len(ngrams) or max_ngrams > 0
-        
-        base = BPEScheme.learn(data, vocab_size)
+
+        if bpe_vocab is None:
+            bpe_vocab = BPEScheme.learn(data, vocab_size)
+
         term_freqs, nlines = WordScheme.term_frequencies(data)
         ngrams_lists = {}
         
@@ -168,20 +171,17 @@ class NgramScheme(BPEScheme):
                                     nlines, merge_func, 
                                     bigram_freqs=bigram_freqs,
                                     min_freq=min_freq)
-            ngrams_lists[ng] = cls.filtered_ngrams(sorted_ngrams, base)
-        
-        # Currently equal number of ngrams from each list are included
-        # or else provided by the user themselves
-        if len(toks_list) == 0:
-            toks_list = [max_ngrams // len(ngrams)] * len(ngrams)
-        assert vocab_size > sum(toks_list)
-        
+            ngrams_lists[ng] = cls.filtered_ngrams(sorted_ngrams, bpe_vocab)
+        return ngrams_lists, bpe_vocab
+
+    @classmethod
+    def merge_lists(cls, base, lists, vocab_size, grams, toks_list):
         unk_idx = Reseved.UNK_IDX
         base_len = vocab_size - sum(toks_list)
 
         vocab = base[:base_len]
-        for ng, ntoks in zip(ngrams, toks_list):
-            trimmed_list = ngrams_lists[ng][:ntoks]
+        for gram, toks in zip(grams, toks_list):
+            trimmed_list =lists[gram][:toks]
             for pair in trimmed_list:
                 tok, _ = pair
                 # Doubt : How to add the ngrams ??
@@ -192,6 +192,27 @@ class NgramScheme(BPEScheme):
                 tok.kids = [t if t.idx < base_len else base[unk_idx] for t in tok.kids]
                 vocab.append(tok)
         return vocab
+
+    @classmethod
+    def learn(cls, data:Iterator[str], vocab_size:int=0, ngrams:List[int]=None, 
+            max_ngrams:int=0, merge_func:str='freq', toks_list:List[int]=[],
+            min_freq:int=NGRAM_MIN_FREQ) -> List['Type']:
+
+        assert ngrams is not None
+        assert len(toks_list) == len(ngrams) or max_ngrams > 0
+        
+        base = BPEScheme.learn(data, vocab_size)
+        ngrams_lists, _ = cls.get_ngrams_lists(data, ngrams, merge_func,
+                                            min_freq, bpe_vocab=base)
+
+        # Currently equal number of ngrams from each list are included
+        # or else provided by the user themselves
+        if len(toks_list) == 0:
+            toks_list = [max_ngrams // len(ngrams)] * len(ngrams)
+        assert vocab_size > sum(toks_list)
+        
+        return cls.merge_lists(base, ngrams_lists, vocab_size, 
+                                ngrams, toks_list)
 
 
 class SkipScheme(BPEScheme):
@@ -323,7 +344,6 @@ class SkipScheme(BPEScheme):
             parts = []
         return ''.join(line).replace(cls.space_char, ' ').strip()
 
-
     @classmethod
     def skipgram_frequencies(cls, data:Iterator[str], 
                     sgram:Tuple[int,int]) -> Dict[str, Dict[str,int]]:
@@ -396,19 +416,17 @@ class SkipScheme(BPEScheme):
         return filtered
 
     @classmethod
-    def learn(cls, data:Iterator[str], vocab_size:int=0, 
-                sgrams:List[Tuple[int,int]]=None, max_sgrams:int=0, 
-                merge_func:str='freq', toks_list:List[int]=[],
-                min_freq:int=SKIPGRAM_MIN_FREQ, min_instances:int=15, 
-                max_instance_prob:float=0.1) -> List['Type']:
+    def get_sgrams_lists(cls, data:Iterator[str], sgrams:List[int]=None,
+                        merge_func:str='freq', min_freq:int=SKIPGRAM_MIN_FREQ,
+                        min_instances:int=15, max_instance_prob:float=0.1,
+                        vocab_size:int=0, bpe_vocab:List['Type']=None):
         assert sgrams is not None
         assert merge_func == 'freq' or merge_func in PMIFuncs.sgram_variants
-        assert max_sgrams > 0 or len(toks_list) == len(sgrams)
+        assert vocab_size != 0 or bpe_vocab is not None
 
-        ## Currently support for n-skip-2 grams only. Need to discuss
-        #  about this with AVT
+        if bpe_vocab is None:
+            bpe_vocab = BPEScheme.learn(data, vocab_size)
 
-        base = BPEScheme.learn(data, vocab_size)
         term_freqs, nlines = WordScheme.term_frequencies(data)
         sgrams_list = {}
 
@@ -419,26 +437,68 @@ class SkipScheme(BPEScheme):
             sgrams_list[sg] = cls.filtered_sgrams(sorted_sgrams, base,
                                                     max_instance_prob, 
                                                     min_instances)
+        return sgrams_list
+
+    @classmethod
+    def learn(cls, data:Iterator[str], vocab_size:int=0, 
+                sgrams:List[Tuple[int,int]]=None, max_sgrams:int=0, 
+                merge_func:str='freq', toks_list:List[int]=[],
+                min_freq:int=SKIPGRAM_MIN_FREQ, min_instances:int=15, 
+                max_instance_prob:float=0.1) -> List['Type']:
+        assert sgrams is not None
+        assert max_sgrams > 0 or len(toks_list) == len(sgrams)
+
+        ## Currently support for n-skip-2 grams only. Need to discuss
+        #  about this with AVT
+
+        base = BPEScheme.learn(data, vocab_size)
+        sgrams_lists, _ = cls.get_sgrams_lists(data, sgrams, merge_func,
+                                            min_freq, min_instances, 
+                                            max_instance_prob, bpe_vocab=base)
 
         if len(toks_list) == 0:
             toks_list = [max_sgrams // len(sgrams)] * len(sgrams)
         assert vocab_size > sum(toks_list)
 
-        unk_idx = Reseved.UNK_IDX
-        base_len = vocab_size - sum(toks_list)
-
-        vocab = base[:base_len]
-        for sg, stoks in zip(sgrams, toks_list):
-            trimmed_list = sgrams_list[sg][:stoks]
-            for pair in trimmed_list:
-                tok, _ = pair
-                tok.kids = [t if t.idx < base_len else base[unk_idx] for t in tok.kids]
-                vocab.append(tok)
-        return vocab
+        return cls.merge_lists(base, sgrams_lists, vocab_size,
+                                sgrams, toks_list)
 
 
-class MWEScheme(BPEScheme):
-    pass
+class MWEScheme(SkipScheme):
+    
+    get_ngrams_lists = NgramScheme.get_ngrams_lists
+
+    @classmethod
+    def learn(cls, data:Iterator[str], vocab_size:int=0, 
+            mwes:List[Union[int,Tuple[int,int]]]=None, max_mwes:int=0,
+            merge_func:str='freq', toks_list:List[int]=[],
+            min_freq:int=MWE_MIN_FREQ, min_instances:int=15,
+            max_instance_prob:float=0.1) -> List['Type']:
+        assert mwes is not None
+        assert max_mwes > 0 or len(toks_list) == len(mwes)
+
+        base = BPEScheme.learn(data, vocab_size)
+        term_freqs, nlines = WordScheme.term_frequencies(data)
+        mwes_list = {}
+
+        ngrams_lists, _ = cls.get_ngrams_lists(data, 
+                            [x for x in mwes if type(x)==int],
+                            merge_func, min_freq, bpe_vocab=base)
+        sgrams_lists, _ = cls.get_sgrams_lists(data, 
+                            [x for x in mwes if type(x)!=int],
+                            merge_func, min_freq, min_instances,
+                            bpe_vocab=base)
+        
+        mwes_list.update(ngrams_lists)
+        mwes_list.update(sgrams_lists)
+
+        if len(toks_list) == 0:
+            toks_list = [max_mwes // len(mwes)] * len(mwes)
+        assert vocab_size > sum(toks_list)
+
+        return cls.merge_lists(base, mwes_list, vocab_size,
+                                mwes, toks_list)
+
 
 # --------------------------------------------------------------------------- #
 
