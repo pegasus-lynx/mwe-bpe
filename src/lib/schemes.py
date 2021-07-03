@@ -207,30 +207,130 @@ class SkipScheme(BPEScheme):
         seq = self.space_char.join(line.strip().split()) + self.space_char
         res: List[int] = []
 
+        def _set_default():
+            return None, False, True
+
         data_node, data_idx = None, -1
         prev_node, idx = self.root, 0
+        tokens, is_skip, check_skip = _set_default()
 
-        ahead_pairs = []
-        ahead_node, ahead_idx = self.root, 0
+        # Thought of a little tweak to make it work for a_b_c tokens.
+        # Setting global tokens to some value. And naming while token to 
+        # something else.
 
-        pos = 0
-        while pos < len(seq):
+        while seq and idx < len(seq)+1:
             if prev_node.has_data:
-                data_node = prev_node
-                data_idx = idx
-            if self.skip_tok in prev_node.kids:
-                pass
+                data_node, data_idx = prev_node, idx
+
+            if self.skip_tok in prev_node.kids and check_skip:
+                tokens, ahead_pair = self.get_skips(seq, idx, prev_node)
+                if tokens is not None:
+                    back_pair = (prev_node, idx)
+                    back_pairs.append(back_pair)
+                    prev_node, idx = ahead_pair
+                    is_skip = True
+                else:
+                    check_skip = False
+            else:
+                if idx < len(seq) and seq[idx] in prev_node.kids:
+                    prev_node = prev_node.kids[seq[idx]]
+                    idx += 1
+                else:
+                    if data_node:
+                        res.append(data_node.data.idx)
+                        seq = seq[data_idx:]
+                        if is_skip:
+                            res.extend(tokens)
+                    else:
+                        res.append(self.unk_idx)
+                        seq = seq[1:]
+
+                    back_pairs = []
+                    prev_node, idx = self.root, 0
+                    data_node, data_idx = None, -1
+                    tokens, is_skip, check_skip = _set_default()
+        
+        return [self.table[idx].name for idx in res]
+                    
+    def check_skippable(self, seq, pos, curr_node):
+        tseq = self.skip_tok + seq[pos:]
+        ix = 0
+        while ix < len(tseq):
+            if tseq[ix] in curr_node.kids:
+                curr_node = curr_node.kids[tseq[ix]]
+                if curr_node.has_data:
+                    return True
+            else:
+                return False
+        return False
+   
+    def get_skips(self, seq, pos, node):
+        next_idxs = []
+        next_tokens = []
+        prev_node, idx = self.root, pos
+        while idx < len(seq):
+            if seq[idx] in prev_node.kids:
+                prev_node = prev_node.kids[seq[idx]]
+                idx += 1
+                if prev_node.has_data:
+                    next_idxs.append(idx)
+                    next_tokens.append(prev_node.data.idx)
+            else:
+                break
+
+        next_node = node.kids[self.skip_tok]
+        next_idxs.reverse()
+        next_tokens.reverse()
+
+        if self.skip_tok in next_node.kids:
+            for token, next_idx in zip(next_tokens, next_idxs):
+                tokens, ahead_pair = self.get_skips(seq, next_idx, next_node)
+                if tokens is not None:
+                    tokens.insert(0, token)
+                    return tokens, ahead_pair
+
+        for token, next_idx in zip(next_tokens, next_idxs):
+            if self.check_skippable(seq, next_idx, next_node):
+                return [token, self.skip_idx], (next_node, next_idx)
+
+        return None, None
 
     @classmethod
     def decode_str(cls, seq:List[str]) -> str:
-        pass
+        line, parts = [], []
+        nskips = 0
+        for tok in seq:
+            if tok == cls.skip_tok:
+                continue
+            if cls.skip_tok in tok:
+                parts = tok.split(cls.skip_tok)
+                for part in parts:
+                    if tok == cls.skip_tok:
+                        nskips -= 1
+                continue
+            if nskips:
+                for ix, part in enumerate(parts):
+                    if part == cls.skip_tok:
+                        parts[ix] = tok
+                        break
+                if not nskips:
+                    line.extend(parts)
+                    parts = []
+            else:
+                line.append(tok)
+        if len(parts) != 0:
+            line.extend(parts)
+            parts = []
+        return ''.join(line).replace(cls.space_char, ' ').strip()
+
 
     @classmethod
     def skipgram_frequencies(cls, data:Iterator[str], 
                     sgram:Tuple[int,int]) -> Dict[str, Dict[str,int]]:
         sgram_freqs = dict()
         _, skip = sgram
-        skip_str = cls.space_char.join([cls.skip_tok]*skip) + cls.space_char
+        # skip_str = cls.space_char.join([cls.skip_tok]*skip) + cls.space_char
+        skip_str = ''.join([cls.skip_tok]*skip)
         for line in tqdm(data, mininterval=1):
             words = WordScheme.encode_str(line)
             nwords = len(words)
