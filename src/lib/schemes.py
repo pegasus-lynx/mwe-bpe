@@ -152,11 +152,11 @@ class NgramScheme(BPEScheme):
 
     @classmethod
     def get_ngrams_lists(cls, data:Iterator[str], ngrams:List[int]=None, 
-                        merge_func:str='freq', min_freq:int=NGRAM_MIN_FREQ, 
+                        sorter_func:str='freq', min_freq:int=NGRAM_MIN_FREQ, 
                         vocab_size:int=0, bpe_vocab:List['Type']=None):
         assert ngrams is not None
         assert vocab_size != 0 or bpe_vocab is not None
-        assert merge_func == 'freq' or merge_func in PMIFuncs.ngram_variants
+        assert sorter_func == 'freq' or sorter_func in PMIFuncs.ngram_variants
 
         if bpe_vocab is None:
             bpe_vocab = BPEScheme.learn(data, vocab_size)
@@ -168,7 +168,7 @@ class NgramScheme(BPEScheme):
         for ng in ngrams:
             ngram_freqs = cls.ngram_frequencies(data, ng)
             sorted_ngrams = cls.sorted_ngrams(ngram_freqs, term_freqs,
-                                    nlines, merge_func, 
+                                    nlines, sorter_func, 
                                     bigram_freqs=bigram_freqs,
                                     min_freq=min_freq)
             ngrams_lists[ng] = cls.filtered_ngrams(sorted_ngrams, bpe_vocab)
@@ -195,14 +195,14 @@ class NgramScheme(BPEScheme):
 
     @classmethod
     def learn(cls, data:Iterator[str], vocab_size:int=0, ngrams:List[int]=None, 
-            max_ngrams:int=0, merge_func:str='freq', toks_list:List[int]=[],
-            min_freq:int=NGRAM_MIN_FREQ) -> List['Type']:
+            max_ngrams:int=0, ngram_sorter:str='freq', toks_list:List[int]=[],
+            min_freq:int=NGRAM_MIN_FREQ, **kwargs) -> List['Type']:
 
         assert ngrams is not None
         assert len(toks_list) == len(ngrams) or max_ngrams > 0
         
         base = BPEScheme.learn(data, vocab_size)
-        ngrams_lists, _ = cls.get_ngrams_lists(data, ngrams, merge_func,
+        ngrams_lists, _ = cls.get_ngrams_lists(data, ngrams, ngram_sorter,
                                             min_freq, bpe_vocab=base)
 
         # Currently equal number of ngrams from each list are included
@@ -417,11 +417,11 @@ class SkipScheme(BPEScheme):
 
     @classmethod
     def get_sgrams_lists(cls, data:Iterator[str], sgrams:List[int]=None,
-                        merge_func:str='freq', min_freq:int=SKIPGRAM_MIN_FREQ,
+                        sorter_func:str='freq', min_freq:int=SKIPGRAM_MIN_FREQ,
                         min_instances:int=15, max_instance_prob:float=0.1,
                         vocab_size:int=0, bpe_vocab:List['Type']=None):
         assert sgrams is not None
-        assert merge_func == 'freq' or merge_func in PMIFuncs.sgram_variants
+        assert sorter_func == 'freq' or sorter_func in PMIFuncs.sgram_variants
         assert vocab_size != 0 or bpe_vocab is not None
 
         if bpe_vocab is None:
@@ -433,7 +433,7 @@ class SkipScheme(BPEScheme):
         for sg in sgrams:
             sgram_freqs = cls.skipgram_frequencies(data, sg)
             sorted_sgrams = cls.sorted_sgrams(sgram_freqs, term_freqs,
-                                            nlines, merge_func, min_freq)
+                                            nlines, sorter_func, min_freq)
             sgrams_list[sg] = cls.filtered_sgrams(sorted_sgrams, base,
                                                     max_instance_prob, 
                                                     min_instances)
@@ -442,9 +442,9 @@ class SkipScheme(BPEScheme):
     @classmethod
     def learn(cls, data:Iterator[str], vocab_size:int=0, 
                 sgrams:List[Tuple[int,int]]=None, max_sgrams:int=0, 
-                merge_func:str='freq', toks_list:List[int]=[],
+                skipgram_sorter:str='freq', toks_list:List[int]=[],
                 min_freq:int=SKIPGRAM_MIN_FREQ, min_instances:int=15, 
-                max_instance_prob:float=0.1) -> List['Type']:
+                max_instance_prob:float=0.1, **kwargs) -> List['Type']:
         assert sgrams is not None
         assert max_sgrams > 0 or len(toks_list) == len(sgrams)
 
@@ -452,7 +452,7 @@ class SkipScheme(BPEScheme):
         #  about this with AVT
 
         base = BPEScheme.learn(data, vocab_size)
-        sgrams_lists, _ = cls.get_sgrams_lists(data, sgrams, merge_func,
+        sgrams_lists, _ = cls.get_sgrams_lists(data, sgrams, skipgram_sorter,
                                             min_freq, min_instances, 
                                             max_instance_prob, bpe_vocab=base)
 
@@ -470,10 +470,11 @@ class MWEScheme(SkipScheme):
 
     @classmethod
     def learn(cls, data:Iterator[str], vocab_size:int=0, 
-            mwes:List[Union[int,Tuple[int,int]]]=None, max_mwes:int=0,
-            merge_func:str='freq', toks_list:List[int]=[],
+            mwes:List[Union[int,Tuple[int,int]]]=None, 
+            ngram_sorter:str='freq', skipgram_sorter:str='freq',
+            toks_list:List[int]=[], max_mwes:int=0,
             min_freq:int=MWE_MIN_FREQ, min_instances:int=15,
-            max_instance_prob:float=0.1) -> List['Type']:
+            max_instance_prob:float=0.1, **kwargs) -> List['Type']:
         assert mwes is not None
         assert max_mwes > 0 or len(toks_list) == len(mwes)
 
