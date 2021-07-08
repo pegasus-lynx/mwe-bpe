@@ -83,6 +83,8 @@ def parse_args():
                             help='Maximum ngrams list to be included in the vocab')
     parser.add_argument('--max_skipgrams_list', type=int, nargs='+', 
                             help='Maximum skipgrams list to be included in the vocab')
+    parser.add_argument('--max_mwes_list', type=int, nargs='+', default = None,
+                            help='List of max ngram and max skipgram pair for mwes')
 
     ## Parameters : Filtering ngrams / skipgrams ----------------------------------------------------------------------
     parser.add_argument('--min_freq', type=int, 
@@ -97,13 +99,25 @@ def parse_args():
 def make_configs(args):
     if args.conf_file is not None:
         configs = read_conf(args.conf_file)
+        if 'include_skipgrams' in configs.keys():
+            raw_skips = configs['include_skipgrams']
+            skips = [raw_skips[2*i:2*(i+1)] for i in range(len(raw_skips)//2)]
+            configs['include_skipgrams'] = skips
+        if 'max_mwes_list' in configs.keys():
+            raw_mwe_pairs = configs['max_mwes_list']
+            mwe_pairs = [list(map(int,x.split())) for x in raw_mwe_pairs]
+            configs['max_mwes_list'] = mwe_pairs
     else:
         configs = validated_args(args)
-
-    if 'include_skipgrams' in configs.keys():
-        raw_skips = configs['include_skipgrams']
-        skips = [raw_skips[2*i:2*(i+1)] for i in range(len(raw_skips)//2)]
-        configs['include_skipgrams'] = skips
+        if 'include_skipgrams' in configs.keys():
+            raw_skips = configs['include_skipgrams']
+            skips = [raw_skips[2*i:2*(i+1)] for i in range(len(raw_skips)//2)]
+            configs['include_skipgrams'] = skips
+        if 'max_mwes_list' in configs.keys():
+            raw_mwe_pairs = configs['max_mwes_list']
+            mwe_pairs = [list(map(int,x.split())) for x in raw_mwe_pairs]
+            configs['max_mwes_list'] = mwe_pairs
+    
     return configs
 
 def validated_args(args):
