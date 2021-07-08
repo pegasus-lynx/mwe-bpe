@@ -106,7 +106,7 @@ class NgramScheme(BPEScheme):
         for line in tqdm(data, mininterval=1):
             words = WordScheme.encode_str(line)
             ngrams = [ cls.space_char.join([*words[i:i+ngram], '']) 
-                        for i in range(len(words)-ngram)]
+                        for i in range((len(words)+1)-ngram)]
             ngram_freqs.update(ngrams)
         return ngram_freqs
 
@@ -129,7 +129,7 @@ class NgramScheme(BPEScheme):
             sorted_list = [(x,x.freq) for x in ngrams_list]
         else:
             sorted_list = PMIFuncs.get_pmis(ngrams_list, nterms, nlines, 
-                                            bigrams=bigram_freqs,
+                                            bigram_freqs=bigram_freqs,
                                             pmi_variant=metric)
         sorted_list.sort(key=lambda x: x[1], reverse=True)
         return sorted_list
@@ -142,12 +142,13 @@ class NgramScheme(BPEScheme):
         words = set([t.name for t in bpes if t.name.endswith(cls.space_char)])
         filtered = []
         for pair in ngrams_list:
-            tok, _ = pair
+            tok, val = pair
             parts = tok.name.replace(cls.space_char, f'{cls.space_char} ').split()[:-1]
             not_word = [ part not in words for part in parts]
             if not any(not_word):
-                tok.kids = [bpes[rev_idx[x]] for x in parts]
-                filtered.append(pair)
+                kids = [bpes[rev_idx[x]] for x in parts]
+                tok = Type(tok.name, tok.level, tok.idx, tok.freq, kids=kids)
+                filtered.append((tok, val))
         return filtered
 
     @classmethod
@@ -189,8 +190,9 @@ class NgramScheme(BPEScheme):
                 # 2. Consider words in the base vocab (all) [current]
                 # 3. Consider words in the base vocab (non-replaced)
                 # if any([t.idx >= base_len for t in tok.kids]):
-                tok.kids = [t if t.idx < base_len else base[unk_idx] for t in tok.kids]
-                vocab.append(tok)
+                kids = [t if t.idx < base_len else base[unk_idx] for t in tok.kids]
+                vocab.append(Type(tok.name, tok.level, len(vocab), 
+                                tok.freq, kids))
         return vocab
 
     @classmethod

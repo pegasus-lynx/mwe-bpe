@@ -55,3 +55,6 @@ For preparing the baseline data and the ngram data, the general flow of executio
 - Prepare new datafiles with the modified vocab files
 
 Further details about how to use the scripts are mentioned [here](src/README.md)
+
+
+**PS** : **.simp** in the names of configs / dirs will refer to the simplified pipeline currently working on.

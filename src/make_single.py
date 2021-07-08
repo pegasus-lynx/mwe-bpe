@@ -3,7 +3,6 @@ import argparse
 from pathlib import Path 
 import collections as coll
 from typing import Union, List, Dict, Any, Tuple, Iterator
-from typing_extensions import OrderedDict
 from nlcodec.utils import IO
 from nlcodec import Type
 
@@ -44,7 +43,7 @@ def prep_vocabs(train_files:Dict[str,Path],
                             min_instances=min_instances,
                             skipgram_sorter=skipgram_sorter,
                             max_instance_probs=max_instance_probs)
-        Type.write_out(vocab, vocab_files=vocab_files[key])
+        Type.write_out(vocab, vocab_files[key])
 
 def prep_data(train_files:Dict[str, Path], val_files:Dict[str, Path], 
             vocab_files:Dict[str, Path], pieces:str, shared:bool, 
@@ -61,15 +60,18 @@ def prep(configs, work_dir):
         'shared' : configs.get('max_types', 0)
     }
 
-    train_files = { 'src':configs['train_src'], 'tgt':configs['train_tgt'] }
-    val_files = { 'src':configs['valid_src'], 'tgt':configs['valid_tgt'] }
+    train_files = { 'src' : Path(configs['train_src']), 
+                    'tgt' : Path(configs['train_tgt']) }
+    val_files = {   'src' : Path(configs['valid_src']), 
+                    'tgt' : Path(configs['valid_tgt']) }
+
     vocab_files = {
         'src' : data_dir / 'nlcodec.src.model',
         'tgt' : data_dir / 'nlcodec.tgt.model',
         'shared': data_dir / 'nlcodec.shared.model'
     }
 
-    prep_vocabs(train_files, val_files, 
+    prep_vocabs(train_files, vocab_files, 
                 configs['pieces'], shared, vocab_sizes, 
                 configs.get('ngram_sorter', 'freq'),
                 configs.get('skipgram_sorter', 'freq'),
@@ -139,14 +141,20 @@ def parse_args():
 
 def make_configs(args):
     if args.conf_file is not None:
-        configs = read_conf(args.conf_file) 
+        configs = read_conf(args.conf_file)
+        from_conf_file = True
     else:
         configs = validated_args(args)
+        from_conf_file = False
 
     if 'include_skipgrams' in configs.keys():
         raw_skips = configs['include_skipgrams']
-        skips = [raw_skips[2*i:2*(i+1)] for i in range(len(raw_skips)//2)]
+        if from_conf_file:
+            skips = [list(map(int, x.split())) for x in raw_skips]
+        else:
+            skips = [raw_skips[2*i:2*(i+1)] for i in range(len(raw_skips)//2)]
         configs['include_skipgrams'] = skips
+    
     return configs
 
 def validated_args(args):
