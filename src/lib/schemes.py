@@ -1,4 +1,5 @@
 import collections as coll
+from math import log
 from logging import makeLogRecord
 from tqdm import tqdm
 import functools as fn
@@ -71,7 +72,7 @@ class PMIFuncs():
     def _naive_pmi(ngram_prob:float, word_probs:List[float]) -> float:
         pmi_num = ngram_prob
         pmi_dec = fn.reduce(lambda a,b: a*b, word_probs)
-        return pmi_num / pmi_dec
+        return log(pmi_num / pmi_dec)
 
     @classmethod
     def _get_bigram_pmis(cls, token:'Type', nterms:int, 
@@ -436,7 +437,7 @@ class SkipScheme(BPEScheme):
             sgram_freqs = cls.skipgram_frequencies(data, sg)
             sorted_sgrams = cls.sorted_sgrams(sgram_freqs, term_freqs,
                                             nlines, sorter_func, min_freq)
-            sgrams_list[sg] = cls.filtered_sgrams(sorted_sgrams, base,
+            sgrams_list[sg] = cls.filtered_sgrams(sorted_sgrams, bpe_vocab,
                                                     max_instance_prob, 
                                                     min_instances)
         return sgrams_list

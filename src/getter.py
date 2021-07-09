@@ -7,70 +7,134 @@ from nlcodec.utils import IO
 from nlcodec import Type
 
 from lib.misc import read_conf, make_dir
-from lib.schemes import load_scheme, NgramScheme, SkipScheme
+from lib.schemes import load_scheme, NgramScheme, SkipScheme, WordScheme
 
 from make_single import uniq_reader_func
 
-def _ngram_freqs(configs:Dict, wdir:Path, head:int=0, tail:int=0):
-
-    assert 'shared' in configs.keys()
+def _ngrams(configs:Dict, wdir:Path, get_flag:str, head:int=0, tail:int=0, save:bool=True):
 
     shared = configs['shared']
     min_freq = configs.get('min_freq', 100)
     keys = ['shared'] if shared else ['src', 'tgt']
 
-    # Just to avoid error in naming
-    if head > 0:
-        tail = 0
-
-    ngram_freqs = dict()
+    ngram_lists = dict()
     for key in keys:
-        if key == 'shared':
-            corp = uniq_reader_func([configs['train_src'], configs['train_tgt']])
-        else:
-            corp = uniq_reader_func(configs[f'train_{key}'])
+        ngram_lists[key] = dict()
+
+        files = [configs['train_src'], configs['train_tgt']]
+        if key != 'shared':
+            files = [configs[f'train_{key}']]
+        corp = uniq_reader_func(*files)
+        term_freqs, nlines = WordScheme.term_frequencies(corp)
+
+        if get_flag == 'ngram_freqs':
+            configs['ngram_sorter'] = 'freq'
+
+        bigram_freqs = None
+        if 'pmi' in configs['ngram_sorter']:
+            bigram_freqs = NgramScheme.ngram_frequencies(corp, 2)
 
         for ngram in configs['include_ngrams']:
             freqs = NgramScheme.ngram_frequencies(corp, ngram)
-            freqs = [ (k,v) for k,v in freqs.items() if v > min_freq ]
-            freqs.sort(lambda x: x[1], reverse=True)
-            
-            if head > 0:
-                freqs = freqs[:head]    
-            elif tail > 0:
-                freqs = freqs[len(freqs)-tail:]
-            
-            ngram_freqs[ngram] = freqs
+            freqs = { k:v for k,v in freqs.items() if v > min_freq }
+            sorted = NgramScheme.sorted_ngrams(freqs, term_freqs, 
+                        nlines, configs['ngram_sorter'], 
+                        bigram_freqs=bigram_freqs,
+                        min_freq=min_freq)
+            ngram_lists[ngram] = sorted
 
-        for ngram in ngram_freqs.keys():
-            file_name = ''.join([
-                f'freqs.ngram.{ngram}.',
-                f'head.{head}.' if head > 0 else '',
-                f'tail.{tail}' if tail > 0 else '',
-                'list'
-            ])
-            save_file = wdir / Path(file_name)
+            prefix = 'freqs.'
+            if get_flag == 'sorted_ngrams':
+                prefix = f'sorted.{configs["ngram_sorter"]}.'
 
-            with open(save_file, 'r') as fw:
-                for pair in ngram_freqs[ngram]:
-                    fw.write('\t'.join(pair))
-                    fw.write('\n')
+            if save:
+                file_name = ''.join([
+                    f'{prefix}.ngram.{ngram}.',
+                    f'head.{head}.' if head > 0 else '',
+                    f'tail.{tail}' if tail > 0 else '',
+                    f'{key}.list'
+                ])
+                save_list(sorted, wdir / Path(file_name))
+    return ngram_lists
+
+def _sgrams(configs:Dict, wdir:Path, get_flag:str, head:int=0, tail:int=0, save:bool=True):
+
+    shared = configs['shared']
+    min_freq = configs.get('min_freq', 100)
+    keys = ['shared'] if shared else ['src', 'tgt']
+
+    skipgram_lists = dict()
+    for key in keys:
+        skipgram_lists[key] = dict()
+
+        files = [configs['train_src'], configs['train_tgt']]
+        if key != 'shared':
+            files = [configs[f'train_{key}']]
+        corp = uniq_reader_func(*files)
+        term_freqs, nlines = WordScheme.term_frequencies(corp)
+
+        if get_flag == 'skipgram_freqs':
+            configs['skipgram_sorter'] = 'freq'
+
+        bigram_freqs = None
+        if 'pmi' in configs['skipgram_sorter']:
+            bigram_freqs = SkipScheme.ngram_frequencies(corp, 2)
+
+        for sgram in configs['include_ngrams']:
+            freqs = SkipScheme.skipgram_frequencies(corp, sgram)
+            freqs = { k:v for k,v in freqs.items() if v > min_freq }
+            sorted = SkipScheme.sorted_sgrams(freqs, term_freqs, 
+                        nlines, configs['skipgram_sorter'], 
+                        bigram_freqs=bigram_freqs,
+                        min_freq=min_freq)
+            skipgram_lists[sgram] = sorted
+
+            prefix = 'freqs.'
+            if get_flag == 'sorted_ngrams':
+                prefix = f'sorted.{configs["ngram_sorter"]}.'
+
+            if save:
+                file_name = ''.join([
+                    f'{prefix}.sgram.{"-".join(sgram)}.',
+                    f'head.{head}.' if head > 0 else '',
+                    f'tail.{tail}' if tail > 0 else '',
+                    f'{key}.list'
+                ])
+                save_list(sorted, wdir / Path(file_name))
+    return skipgram_lists
 
 
+def save_list(mwe_list, save_file):
+    with open(save_file, 'w') as fw:
+        for ix, pair in enumerate(mwe_list):
+            tok, val = pair
+            fw.write('\t'.join([
+                str(tok.idx), tok.name, 
+                str(val), str(tok.freq), 
+                ' '.join(list(map(str,tok.kids))) if tok.kids else '',
+                '\n' 
+            ]))
 
 def driver(args, configs:Dict, wdir:Path):
 
+    # As only one of these should be active at a time.
+    assert not (args.head > 0 and args.tail > 0)
+
     if args.ngram_freqs:
-        _ngram_freqs(configs, wdir)        
+        get_flag = 'ngram_freqs'
+        _ngrams(configs, wdir, get_flag,  head=args.head, tail=args.tail)        
 
     if args.sorted_ngrams:
-        pass
+        get_flag = 'sorted_ngrams'
+        _ngrams(configs, wdir, get_flag, head=args.head, tail=args.tail)
 
-    if args.skpgram_freqs:
-        pass
+    if args.skipgram_freqs:
+        get_flag = 'skipgram_freqs'
+        _sgrams(configs, wdir, get_flag, head=args.head, tail=args.tail)
 
     if args.sorted_skipgrams:
-        pass
+        get_flag = 'sorted_skipgrams'
+        _sgrams(configs, wdir, get_flag, head=args.head, tail=args.tail)
 
     return
 
@@ -95,8 +159,8 @@ def parse_args():
 
     return parser.parse_args()
 
-def make_configs(args):
-    configs = read_conf(args.conf_file)
+def make_configs(conf_file):
+    configs = read_conf(conf_file)
 
     if 'include_skipgrams' in configs.keys():
         raw_skips = configs['include_skipgrams']
