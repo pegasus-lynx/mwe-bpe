@@ -78,16 +78,16 @@ def _sgrams(configs:Dict, wdir:Path, get_flag:str, head:int=0, tail:int=0, save:
 
         bigram_freqs = None
         if 'pmi' in configs['skipgram_sorter']:
-            bigram_freqs = SkipScheme.ngram_frequencies(corp, 2)
+            bigram_freqs = NgramScheme.ngram_frequencies(corp, 2)
 
-        for sgram in configs['include_ngrams']:
+        for sgram in configs['include_skipgrams']:
             freqs = SkipScheme.skipgram_frequencies(corp, sgram)
-            freqs = { k:v for k,v in freqs.items() if v > min_freq }
+            freqs = { k:v for k,v in freqs.items() if sum(v.values()) > min_freq }
             sorted = SkipScheme.sorted_sgrams(freqs, term_freqs, 
-                        nlines, configs['skipgram_sorter'], 
-                        bigram_freqs=bigram_freqs,
+                        nlines, configs['skipgram_sorter'],
                         min_freq=min_freq)
-            skipgram_lists[sgram] = sorted
+            hash = (sgram[0]*SkipScheme.hash_prime) + sgram[1]
+            skipgram_lists[hash] = sorted
 
             prefix = 'freqs.'
             if get_flag == 'sorted_ngrams':
@@ -95,7 +95,7 @@ def _sgrams(configs:Dict, wdir:Path, get_flag:str, head:int=0, tail:int=0, save:
 
             if save:
                 file_name = ''.join([
-                    f'{prefix}.sgram.{"-".join(sgram)}.',
+                    f'{prefix}.sgram.{"-".join(list(map(str,sgram)))}.',
                     f'head.{head}.' if head > 0 else '',
                     f'tail.{tail}' if tail > 0 else '',
                     f'{key}.list'
@@ -103,11 +103,11 @@ def _sgrams(configs:Dict, wdir:Path, get_flag:str, head:int=0, tail:int=0, save:
                 save_list(sorted, wdir / Path(file_name))
     return skipgram_lists
 
-
 def save_list(mwe_list, save_file):
     with open(save_file, 'w') as fw:
-        for ix, pair in enumerate(mwe_list):
-            tok, val = pair
+        for ix, tup in enumerate(mwe_list):
+            tok = tup[0] 
+            val = tup[1]
             fw.write('\t'.join([
                 str(tok.idx), tok.name, 
                 str(val), str(tok.freq), 

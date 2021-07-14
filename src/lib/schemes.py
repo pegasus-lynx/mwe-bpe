@@ -4,8 +4,11 @@ from logging import makeLogRecord
 from tqdm import tqdm
 import functools as fn
 from nlcodec import Type, Reseved, CharScheme, WordScheme, BPEScheme
-from typing import Iterator, Optional, Dict, Tuple, List, Union
+from nlcodec import DEF_CHAR_COVERAGE, DEF_MIN_CO_EV, DEF_WORD_MIN_FREQ, DEF_CHAR_MIN_FREQ
+from nlcodec.bpe import BPELearn
+from typing import Iterator, Optional, Dict, Tuple, List, Union, Set
 
+## NGRAM and SKIPGRAM to be used for more customizability
 NGRAM_MIN_FREQ = 100
 SKIPGRAM_MIN_FREQ = 100
 MWE_MIN_FREQ = 100
@@ -91,7 +94,7 @@ class PMIFuncs():
 class NgramScheme(BPEScheme):
 
     def __init__(self, table:List['Type']):
-        super().__init__(table=table, invertible=False)
+        super().__init__(table=table)
 
     def decode(self, seq:List[int]) -> str:
         pieces = [self.table[x].name for x in seq]
@@ -100,6 +103,16 @@ class NgramScheme(BPEScheme):
     def decode_str(self, seq:List[str]) -> str:
         return ''.join(seq).replace(self.space_char, ' ').strip()
 
+    @classmethod
+    def get_bpe_words(cls, bpe, words_set):
+        available_words = set()
+        for token in bpe:
+            name = token.name
+            if name.endswith(Reseved.SPACE_TOK[0]):
+                if name[:-1] in words_set:
+                    available_words.add(name)
+        return available_words
+        
     @classmethod
     def ngram_frequencies(cls, data: Iterator[str], 
                             ngram:int) -> Dict[str,int]:
@@ -114,16 +127,17 @@ class NgramScheme(BPEScheme):
     @classmethod
     def sorted_ngrams(cls, ngram_freqs:Dict[str,int], 
         term_freqs:Dict[str, int], nlines:int, metric:str, bigram_freqs=None, 
-        min_freq:int=NGRAM_MIN_FREQ) -> List[Tuple['Type', Union[int,float]]]:
+        min_freq:int=MWE_MIN_FREQ) -> List[Tuple['Type', Union[int,float]]]:
         
         nterms = sum(term_freqs.values())
         ngrams_list = []
         for name, freq in ngram_freqs.items():
-            if freq < min_freq:
-                continue
-            words = name.split(cls.space_char)[:-1]
-            word_freqs = [term_freqs[word] for word in words]
-            ngrams_list.append(Type(name, freq=freq, idx=0, 
+            # if name == 'aya▁pehn▁':
+            #     print(name, freq)
+            if freq >= min_freq:
+                words = name.split(cls.space_char)[:-1]
+                word_freqs = [term_freqs[word] for word in words]
+                ngrams_list.append(Type(name, freq=freq, idx=0, 
                                     level=3, kids=word_freqs))
 
         if metric == 'freq':
@@ -136,16 +150,19 @@ class NgramScheme(BPEScheme):
         return sorted_list
             
     @classmethod
-    def filtered_ngrams(cls, ngrams_list:List[Tuple['Type',Union[int,float]]],
-            bpes:List['Type']) -> List[Tuple['Type', Union[int,float]]]:
+    def filtered_ngrams(cls, 
+            ngrams_list:List[Tuple['Type',Union[int,float]]],
+            bpes:List['Type'],
+            words_set:Set[str]) -> List[Tuple['Type', Union[int,float]]]:
         
         rev_idx = {t.name:t.idx for t in bpes}
-        words = set([t.name for t in bpes if t.name.endswith(cls.space_char)])
         filtered = []
         for pair in ngrams_list:
             tok, val = pair
+            if tok.name == 'aya▁pehn▁':
+                print(tok, val)
             parts = tok.name.replace(cls.space_char, f'{cls.space_char} ').split()[:-1]
-            not_word = [ part not in words for part in parts]
+            not_word = [ part not in words_set for part in parts]
             if not any(not_word):
                 kids = [bpes[rev_idx[x]] for x in parts]
                 tok = Type(tok.name, tok.level, tok.idx, tok.freq, kids=kids)
@@ -154,7 +171,7 @@ class NgramScheme(BPEScheme):
 
     @classmethod
     def get_ngrams_lists(cls, data:Iterator[str], ngrams:List[int]=None, 
-                        sorter_func:str='freq', min_freq:int=NGRAM_MIN_FREQ, 
+                        sorter_func:str='freq', min_freq:int=MWE_MIN_FREQ, 
                         vocab_size:int=0, bpe_vocab:List['Type']=None):
         assert ngrams is not None
         assert vocab_size != 0 or bpe_vocab is not None
@@ -164,6 +181,9 @@ class NgramScheme(BPEScheme):
             bpe_vocab = BPEScheme.learn(data, vocab_size)
 
         term_freqs, nlines = WordScheme.term_frequencies(data)
+        all_words = set(term_freqs.keys())
+        bpe_words = cls.get_bpe_words(bpe_vocab, all_words)
+
         ngrams_lists = {}
         
         bigram_freqs = cls.ngram_frequencies(data, 2)
@@ -173,7 +193,8 @@ class NgramScheme(BPEScheme):
                                     nlines, sorter_func, 
                                     bigram_freqs=bigram_freqs,
                                     min_freq=min_freq)
-            ngrams_lists[ng] = cls.filtered_ngrams(sorted_ngrams, bpe_vocab)
+            ngrams_lists[ng] = cls.filtered_ngrams(sorted_ngrams, 
+                                                bpe_vocab, bpe_words)
         return ngrams_lists, bpe_vocab
 
     @classmethod
@@ -185,7 +206,7 @@ class NgramScheme(BPEScheme):
         for gram, toks in zip(grams, toks_list):
             trimmed_list =lists[gram][:toks]
             for pair in trimmed_list:
-                tok, _ = pair
+                tok = pair[0]
                 # Doubt : How to add the ngrams ??
                 # 1. Use a global list of ngrams irrespective of the words in the vocabs
                 # 2. Consider words in the base vocab (all) [current]
@@ -199,7 +220,7 @@ class NgramScheme(BPEScheme):
     @classmethod
     def learn(cls, data:Iterator[str], vocab_size:int=0, ngrams:List[int]=None, 
             max_ngrams:int=0, ngram_sorter:str='freq', toks_list:List[int]=[],
-            min_freq:int=NGRAM_MIN_FREQ, **kwargs) -> List['Type']:
+            min_freq:int=MWE_MIN_FREQ, **kwargs) -> List['Type']:
 
         assert ngrams is not None
         assert len(toks_list) == len(ngrams) or max_ngrams > 0
@@ -220,14 +241,21 @@ class NgramScheme(BPEScheme):
 
 class SkipScheme(BPEScheme):
 
-    skip_tok = '▂' # U+2582 ??
+    PLACE_TOK = '▂', 6 # U+2582 ??
+    SKIP_TOK = '<skp>', 7
+    TOKS = [PLACE_TOK, SKIP_TOK]
+    
+    skip_char = PLACE_TOK[0]
+    skip_tok = SKIP_TOK[0]
+
+    hash_prime = 9973 # prime number to hash the list
     
     def __init__(self, table:List['Type']):
         super().__init__(table=table)
         self.root = self.make_vocab_prefix_trie(self.table)
         assert self.unk_idx
 
-    def encode_str(self, line:str) -> List[str]:
+    def encode_str(self, line:str, split_ratio=None) -> List[str]:
         seq = self.space_char.join(line.strip().split()) + self.space_char
         res: List[int] = []
 
@@ -246,7 +274,7 @@ class SkipScheme(BPEScheme):
             if prev_node.has_data:
                 data_node, data_idx = prev_node, idx
 
-            if self.skip_tok in prev_node.kids and check_skip:
+            if self.skip_char in prev_node.kids and check_skip:
                 tokens, ahead_pair = self.get_skips(seq, idx, prev_node)
                 if tokens is not None:
                     back_pair = (prev_node, idx)
@@ -277,7 +305,7 @@ class SkipScheme(BPEScheme):
         return [self.table[idx].name for idx in res]
                     
     def check_skippable(self, seq, pos, curr_node):
-        tseq = self.skip_tok + seq[pos:]
+        tseq = self.skip_char + seq[pos:]
         ix = 0
         while ix < len(tseq):
             if tseq[ix] in curr_node.kids:
@@ -302,11 +330,11 @@ class SkipScheme(BPEScheme):
             else:
                 break
 
-        next_node = node.kids[self.skip_tok]
+        next_node = node.kids[self.skip_char]
         next_idxs.reverse()
         next_tokens.reverse()
 
-        if self.skip_tok in next_node.kids:
+        if self.skip_char in next_node.kids:
             for token, next_idx in zip(next_tokens, next_idxs):
                 tokens, ahead_pair = self.get_skips(seq, next_idx, next_node)
                 if tokens is not None:
@@ -315,7 +343,7 @@ class SkipScheme(BPEScheme):
 
         for token, next_idx in zip(next_tokens, next_idxs):
             if self.check_skippable(seq, next_idx, next_node):
-                return [token, self.skip_idx], (next_node, next_idx)
+                return [token, self.SKIP_TOK[1]], (next_node, next_idx)
 
         return None, None
 
@@ -324,17 +352,17 @@ class SkipScheme(BPEScheme):
         line, parts = [], []
         nskips = 0
         for tok in seq:
-            if tok == cls.skip_tok:
+            if tok == cls.skip_char:
                 continue
-            if cls.skip_tok in tok:
-                parts = tok.split(cls.skip_tok)
+            if cls.skip_char in tok:
+                parts = tok.split(cls.skip_char)
                 for part in parts:
-                    if tok == cls.skip_tok:
+                    if tok == cls.skip_char:
                         nskips -= 1
                 continue
             if nskips:
                 for ix, part in enumerate(parts):
-                    if part == cls.skip_tok:
+                    if part == cls.skip_char:
                         parts[ix] = tok
                         break
                 if not nskips:
@@ -352,8 +380,8 @@ class SkipScheme(BPEScheme):
                     sgram:Tuple[int,int]) -> Dict[str, Dict[str,int]]:
         sgram_freqs = dict()
         _, skip = sgram
-        # skip_str = cls.space_char.join([cls.skip_tok]*skip) + cls.space_char
-        skip_str = ''.join([cls.skip_tok]*skip)
+        # skip_str = cls.space_char.join([cls.skip_char]*skip) + cls.space_char
+        skip_str = ''.join([cls.skip_char]*skip)
         for line in tqdm(data, mininterval=1):
             words = WordScheme.encode_str(line)
             nwords = len(words)
@@ -378,7 +406,7 @@ class SkipScheme(BPEScheme):
             if freq < min_freq:
                 continue
             words = name.split(cls.space_char)[:-1]
-            word_freqs = [0 if cls.skip_tok in word else term_freqs[word]
+            word_freqs = [0 if cls.skip_char in word else term_freqs[word]
                             for word in words]
             ninstances = len(instances.keys())
             max_prob =  max([val/freq for val in instances.values()])
@@ -398,55 +426,108 @@ class SkipScheme(BPEScheme):
 
     @classmethod
     def filtered_sgrams(cls, sgrams_list:List[Tuple['Type', Union[int,float], 
-            Tuple[int,float]]], bpes:List['Type'], max_instance_prob:float=1.0,
-            min_instances:int=0) -> List[Tuple['Type', Union[int,float], 
-            Tuple[int,float]]]:
+            Tuple[int,float]]], bpes:List['Type'], all_words:Set[str], max_instance_prob:float=1.0, 
+            min_instances:int=0) -> List[Tuple['Type', Union[int,float], Tuple[int,float]]]:
         rev_idx = {t.name:t.idx for t in bpes}
-        words = set([t.name for t in bpes if t.name.endswith(cls.space_char)])
+        all_words.add(cls.skip_char)
         filtered = []
+        cnt = 2
+        na = 0
+        cons = 0
         for trp in sgrams_list:
-            tok, _, stats = trp
+            tok, val, stats = trp
             ninstances, max_prob = stats
             if ninstances < min_instances or max_prob > max_instance_prob:
+                cons += 1
                 continue
-            parts = tok.name.replace(cls.space_char, 
-                                    f'{cls.space_char} ').split()[:-1]
-            not_word = [ part not in words or cls.skip_tok in part 
+            # parts = tok.name.replace(cls.space_char, 
+            #                 f'{cls.space_char} ').replace(
+            #                 cls.skip_char, f'{cls.skip_char} ').split()[:-1]
+            # parts = tok.name.split(cls.skip_char)
+            xname = tok.name.replace(cls.skip_char, f'{cls.skip_char} ')
+            parts = xname.replace(cls.space_char, f'{cls.space_char} ').split()
+            not_word = [ part not in all_words 
                                 for part in parts]
+            na += 1
             if not any(not_word):
-                tok.kids = [bpes[rev_idx[x]] for x in parts]
-                filtered.append(trp)
+                if cnt <10:
+                    print(parts)
+                    print(not_word)
+                    print()
+                    cnt+= 1
+                na -= 1
+                kids = [bpes[rev_idx[x]] for x in parts]
+                tok = Type(tok.name, tok.level, tok.idx, 
+                                tok.freq, kids)
+                filtered.append((tok, val, stats))
+        print('Not Passed :', na)
+        print('Failed constraint : ', cons)
         return filtered
 
     @classmethod
-    def get_sgrams_lists(cls, data:Iterator[str], sgrams:List[int]=None,
-                        sorter_func:str='freq', min_freq:int=SKIPGRAM_MIN_FREQ,
+    def get_sgrams_lists(cls, data:Iterator[str], sgrams:List[Tuple[int,int]]=None,
+                        sorter_func:str='freq', min_freq:int=MWE_MIN_FREQ,
                         min_instances:int=15, max_instance_prob:float=0.1,
                         vocab_size:int=0, bpe_vocab:List['Type']=None):
         assert sgrams is not None
         assert sorter_func == 'freq' or sorter_func in PMIFuncs.sgram_variants
         assert vocab_size != 0 or bpe_vocab is not None
 
-        if bpe_vocab is None:
-            bpe_vocab = BPEScheme.learn(data, vocab_size)
-
+        print('Found term freqs and nlines')
         term_freqs, nlines = WordScheme.term_frequencies(data)
+        all_words = set(term_freqs.keys())
+
         sgrams_list = {}
 
+        if bpe_vocab is None:
+            
+            def init_vocab_factory(char_types):
+                tvcb = CharScheme.get_init_vocab(char_types, line_count=nlines,
+                                                coverage=DEF_CHAR_COVERAGE, 
+                                                min_freq=1)
+                vocab = Reseved.with_reserved_types()
+                for tok in cls.TOKS:
+                    name, idx = tok
+                    vocab.append(Type(name, level=-1, idx=idx, freq=0))
+                for tok in tvcb:
+                    if tok.level < 0:
+                        continue
+                    vocab.append(Type(tok.name, level=tok.level, 
+                                    idx=len(vocab), freq=tok.freq,
+                                    kids=tok.kids))
+                return vocab
+
+            bpe_vocab = BPELearn.learn_subwords(term_freqs=term_freqs, 
+                                            vocab_size=vocab_size,
+                                            init_vocab_factory=init_vocab_factory,
+                                            min_co_evidence=DEF_MIN_CO_EV)
+            # BPEScheme.learn(data, vocab_size, term_freqs=term_freqs)
+
+        bpe_words = NgramScheme.get_bpe_words(bpe_vocab, all_words)
+
+        print('Making skipgrams')
         for sg in sgrams:
+            print(f'> Preparing skipgrams {str(sg)}')
             sgram_freqs = cls.skipgram_frequencies(data, sg)
             sorted_sgrams = cls.sorted_sgrams(sgram_freqs, term_freqs,
                                             nlines, sorter_func, min_freq)
-            sgrams_list[sg] = cls.filtered_sgrams(sorted_sgrams, bpe_vocab,
+            del(sgram_freqs)
+            hash = (sg[0]*cls.hash_prime) + sg[1]
+            sgrams_list[hash] = cls.filtered_sgrams(sorted_sgrams, bpe_vocab,
+                                                    bpe_words,
                                                     max_instance_prob, 
                                                     min_instances)
-        return sgrams_list
+        return sgrams_list, bpe_vocab
+
+    @classmethod
+    def merge_lists(cls, base, lists, vocab_size, grams, toks_list):
+        return NgramScheme.merge_lists(base, lists, vocab_size, grams, toks_list)
 
     @classmethod
     def learn(cls, data:Iterator[str], vocab_size:int=0, 
                 sgrams:List[Tuple[int,int]]=None, max_sgrams:int=0, 
                 skipgram_sorter:str='freq', toks_list:List[int]=[],
-                min_freq:int=SKIPGRAM_MIN_FREQ, min_instances:int=15, 
+                min_freq:int=MWE_MIN_FREQ, min_instances:int=15, 
                 max_instance_prob:float=0.1, **kwargs) -> List['Type']:
         assert sgrams is not None
         assert max_sgrams > 0 or len(toks_list) == len(sgrams)
@@ -454,17 +535,18 @@ class SkipScheme(BPEScheme):
         ## Currently support for n-skip-2 grams only. Need to discuss
         #  about this with AVT
 
-        base = BPEScheme.learn(data, vocab_size)
-        sgrams_lists, _ = cls.get_sgrams_lists(data, sgrams, skipgram_sorter,
-                                            min_freq, min_instances, 
-                                            max_instance_prob, bpe_vocab=base)
+        sgrams_lists, base = cls.get_sgrams_lists(data, sgrams, skipgram_sorter,
+                                            min_freq, min_instances,
+                                            max_instance_prob,
+                                            vocab_size=vocab_size)
 
         if len(toks_list) == 0:
             toks_list = [max_sgrams // len(sgrams)] * len(sgrams)
         assert vocab_size > sum(toks_list)
 
+        hashed_sgrams = list(map(lambda x: (x[0]*cls.hash_prime) + x[1], sgrams))
         return cls.merge_lists(base, sgrams_lists, vocab_size,
-                                sgrams, toks_list)
+                                hashed_sgrams, toks_list)
 
 
 class MWEScheme(SkipScheme):

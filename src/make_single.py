@@ -1,13 +1,16 @@
 import argparse
+from json import load
 
 from pathlib import Path 
 import collections as coll
 from typing import Union, List, Dict, Any, Tuple, Iterator
+
 from nlcodec.utils import IO
 from nlcodec import Type
+from rtg.data.dataset import TSVData, SqliteFile
 
 from lib.misc import read_conf, make_dir
-from lib.schemes import load_scheme
+from lib.schemes import load_scheme, MWE_MIN_FREQ
 
 ds_keys = ['src','tgt']
 
@@ -26,7 +29,7 @@ def prep_vocabs(train_files:Dict[str,Path],
         ngram_sorter:str, skipgram_sorter:str,
         max_ngrams:int=0, include_ngrams:List[int]=None, 
         max_skipgrams:int=0, include_skipgrams:List[Tuple[int,int]]=None, 
-        min_freq:int=0, min_instances:int=0, max_instance_probs:float=1.0):
+        min_freq:int=MWE_MIN_FREQ, min_instances:int=0, max_instance_probs:float=1.0):
     
     scheme = load_scheme(pieces)
     keys = ['shared'] if shared else ['src', 'tgt']
@@ -48,7 +51,29 @@ def prep_vocabs(train_files:Dict[str,Path],
 def prep_data(train_files:Dict[str, Path], val_files:Dict[str, Path], 
             vocab_files:Dict[str, Path], pieces:str, shared:bool, 
             src_len:int, tgt_len:int, truncate:bool, work_dir:Path):
-    pass
+    scheme = load_scheme(pieces)
+    
+    codecs = {}
+    for key, fpath in vocab_files.items():
+        if fpath.exists():
+            table, _ = Type.read_vocab(fpath)
+            codecs[key] = scheme(table)
+    src_codec = codecs['shared' if 'shared' in codecs.keys() else 'src']
+    tgt_codec = codecs['shared' if 'shared' in codecs.keys() else 'tgt']
+
+    ## For train files
+    recs = TSVData.read_raw_parallel_recs(train_files['src'], 
+                train_files['tgt'], truncate, src_len, tgt_len,
+                src_codec.encode, tgt_codec.encode)
+    SqliteFile.write(work_dir / Path('train.db'), recs)
+
+    ## For validation files
+    recs = TSVData.read_raw_parallel_recs(val_files['src'], 
+                val_files['tgt'], truncate, src_len, tgt_len,
+                src_codec.encode, tgt_codec.encode)
+    TSVData.write_parallel_recs(recs, work_dir / Path('valid.tsv.gz'))
+
+    return
 
 def prep(configs, work_dir):
     shared = configs['shared']
