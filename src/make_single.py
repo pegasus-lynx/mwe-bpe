@@ -65,6 +65,7 @@ def prep_data(train_files:Dict[str, Path], val_files:Dict[str, Path],
     recs = TSVData.read_raw_parallel_recs(train_files['src'], 
                 train_files['tgt'], truncate, src_len, tgt_len,
                 src_codec.encode, tgt_codec.encode)
+    # TSVData.write_parallel_recs(recs, work_dir / Path('train.tsv'))
     SqliteFile.write(work_dir / Path('train.db'), recs)
 
     ## For validation files
@@ -103,7 +104,10 @@ def prep(configs, work_dir):
                 configs.get('max_ngrams', 0), 
                 configs.get('include_ngrams', None), 
                 configs.get('max_skipgrams', 0), 
-                configs.get('include_skipgrams', None))
+                configs.get('include_skipgrams', None),
+                configs.get('min_freq', 0),
+                configs.get('min_instances', 0),
+                configs.get('max_instance_probs', 1))
 
     prep_data(train_files, val_files, vocab_files, configs['pieces'],
             shared, configs['src_len'], configs['tgt_len'],

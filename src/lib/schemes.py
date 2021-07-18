@@ -161,7 +161,7 @@ class NgramScheme(BPEScheme):
             tok, val = pair
             if tok.name == 'aya▁pehn▁':
                 print(tok, val)
-            parts = tok.name.replace(cls.space_char, f'{cls.space_char} ').split()[:-1]
+            parts = tok.name.replace(cls.space_char, f'{cls.space_char} ').split()
             not_word = [ part not in words_set for part in parts]
             if not any(not_word):
                 kids = [bpes[rev_idx[x]] for x in parts]
@@ -248,12 +248,18 @@ class SkipScheme(BPEScheme):
     skip_char = PLACE_TOK[0]
     skip_tok = SKIP_TOK[0]
 
+    count = 1
+
     hash_prime = 9973 # prime number to hash the list
     
     def __init__(self, table:List['Type']):
         super().__init__(table=table)
         self.root = self.make_vocab_prefix_trie(self.table)
         assert self.unk_idx
+
+    def encode(self, line: str, split_ratio: float = 0.) -> List[int]:
+        pieces = self.encode_str(line, split_ratio=split_ratio)
+        return [self.str_to_idx.get(piece, self.unk_idx) for piece in pieces]
 
     def encode_str(self, line:str, split_ratio=None) -> List[str]:
         seq = self.space_char.join(line.strip().split()) + self.space_char
@@ -262,6 +268,7 @@ class SkipScheme(BPEScheme):
         def _set_default():
             return None, False, True
 
+        back_pairs = []
         data_node, data_idx = None, -1
         prev_node, idx = self.root, 0
         tokens, is_skip, check_skip = _set_default()
@@ -271,16 +278,32 @@ class SkipScheme(BPEScheme):
         # something else.
 
         while seq and idx < len(seq)+1:
+
+            # try:
+            #     print(data_node.data.name, data_idx)
+            # except Exception as e:
+            #     print('None', data_idx)
+
+            # try:
+            #     print(prev_node.data.name, idx)
+            # except Exception as e:
+            #     print('None', idx)
+
+            # print()
+
             if prev_node.has_data:
                 data_node, data_idx = prev_node, idx
 
-            if self.skip_char in prev_node.kids and check_skip:
+            if self.skip_char in prev_node.kids and check_skip and idx != 0:
+                # print('Checking Skip ...')
                 tokens, ahead_pair = self.get_skips(seq, idx, prev_node)
                 if tokens is not None:
+                    # print('Tokens : ', tokens)
                     back_pair = (prev_node, idx)
                     back_pairs.append(back_pair)
                     prev_node, idx = ahead_pair
                     is_skip = True
+                    check_skip = False
                 else:
                     check_skip = False
             else:
@@ -293,6 +316,7 @@ class SkipScheme(BPEScheme):
                         seq = seq[data_idx:]
                         if is_skip:
                             res.extend(tokens)
+                            is_skip = False
                     else:
                         res.append(self.unk_idx)
                         seq = seq[1:]
@@ -305,28 +329,34 @@ class SkipScheme(BPEScheme):
         return [self.table[idx].name for idx in res]
                     
     def check_skippable(self, seq, pos, curr_node):
-        tseq = self.skip_char + seq[pos:]
+        # tseq = self.skip_char + seq[pos:]
+        tseq = seq[pos:]
+        # print('Skippable :', tseq)
         ix = 0
         while ix < len(tseq):
             if tseq[ix] in curr_node.kids:
+                # print(f'In : {tseq[ix]}')
                 curr_node = curr_node.kids[tseq[ix]]
+                ix += 1
                 if curr_node.has_data:
                     return True
             else:
-                return False
+                return False        
         return False
    
     def get_skips(self, seq, pos, node):
+        # print('Getting skips :')
         next_idxs = []
         next_tokens = []
         prev_node, idx = self.root, pos
         while idx < len(seq):
             if seq[idx] in prev_node.kids:
+                # print(seq[idx], prev_node.data.name if prev_node.data is not None else 'root')
                 prev_node = prev_node.kids[seq[idx]]
                 idx += 1
                 if prev_node.has_data:
                     next_idxs.append(idx)
-                    next_tokens.append(prev_node.data.idx)
+                    next_tokens.append(prev_node)
             else:
                 break
 
@@ -335,45 +365,78 @@ class SkipScheme(BPEScheme):
         next_tokens.reverse()
 
         if self.skip_char in next_node.kids:
+            # print('Checking for next skip tokens ...')
             for token, next_idx in zip(next_tokens, next_idxs):
                 tokens, ahead_pair = self.get_skips(seq, next_idx, next_node)
                 if tokens is not None:
-                    tokens.insert(0, token)
+                    tokens.insert(0, token.data.idx)
                     return tokens, ahead_pair
 
         for token, next_idx in zip(next_tokens, next_idxs):
             if self.check_skippable(seq, next_idx, next_node):
-                return [token, self.SKIP_TOK[1]], (next_node, next_idx)
+                return [token.data.idx, self.SKIP_TOK[1]], (next_node, next_idx)
 
         return None, None
 
     @classmethod
     def decode_str(cls, seq:List[str]) -> str:
-        line, parts = [], []
-        nskips = 0
+
+        ordered_seq = [None]*len(seq)
+        pos = 0
+        skipped_pos = []
         for tok in seq:
-            if tok == cls.skip_char:
+            # print(ordered_seq)
+            # print(pos)
+            if tok == cls.skip_tok:
                 continue
-            if cls.skip_char in tok:
-                parts = tok.split(cls.skip_char)
-                for part in parts:
-                    if tok == cls.skip_char:
-                        nskips -= 1
-                continue
+            nskips = coll.Counter(tok).get(cls.skip_char,0)
             if nskips:
+                xtok = tok.replace(cls.skip_char, f'{cls.skip_char} ')
+                xtok = xtok.replace(cls.space_char, f'{cls.space_char} ')
+                parts = xtok.split()
+                # print(parts)
                 for ix, part in enumerate(parts):
-                    if part == cls.skip_char:
-                        parts[ix] = tok
-                        break
-                if not nskips:
-                    line.extend(parts)
-                    parts = []
+                    if part != cls.skip_char:
+                        ordered_seq[pos+ix] = part
+                    else:
+                        skipped_pos.append(pos+ix)
+                pos += len(parts)
             else:
-                line.append(tok)
-        if len(parts) != 0:
-            line.extend(parts)
-            parts = []
-        return ''.join(line).replace(cls.space_char, ' ').strip()
+                if len(skipped_pos) != 0:
+                    cpos = skipped_pos[0]
+                    skipped_pos = skipped_pos[1:]
+                    ordered_seq[cpos] = tok
+                else:
+                    ordered_seq[pos] = tok
+                    pos += 1
+
+        return ''.join(ordered_seq).replace(cls.space_char, ' ')
+
+        # line, parts = [], []
+        # nskips = 0
+        # for tok in seq:
+        #     if tok == cls.skip_char:
+        #         continue
+        #     if cls.skip_char in tok:
+        #         parts = tok.split(cls.skip_char)
+        #         for part in parts:
+        #             if tok == cls.skip_char:
+        #                 nskips -= 1
+        #         continue
+        #     if nskips:
+        #         for ix, part in enumerate(parts):
+        #             if part == cls.skip_char:
+        #                 parts[ix] = tok
+        #                 break
+        #         if not nskips:
+        #             line.extend(parts)
+        #             parts = []
+        #     else:
+        #         line.append(tok)
+        # if len(parts) != 0:
+        #     line.extend(parts)
+        #     parts = []
+        # return ''.join(line).replace(cls.space_char, ' ').strip()
 
     @classmethod
     def skipgram_frequencies(cls, data:Iterator[str], 
@@ -381,7 +444,7 @@ class SkipScheme(BPEScheme):
         sgram_freqs = dict()
         _, skip = sgram
         # skip_str = cls.space_char.join([cls.skip_char]*skip) + cls.space_char
-        skip_str = ''.join([cls.skip_char]*skip)
+        skip_str = cls.skip_char * skip
         for line in tqdm(data, mininterval=1):
             words = WordScheme.encode_str(line)
             nwords = len(words)
@@ -391,7 +454,7 @@ class SkipScheme(BPEScheme):
                     name = f'{words[i]}{skip_str}{words[i+skip+1]}'
                     if name not in sgram_freqs.keys():
                         sgram_freqs[name] = coll.Counter()
-                    sgram_freqs[name].update(''.join(words[i+1:i+skip+1]))
+                    sgram_freqs[name].update([''.join(words[i+1:i+skip+1])])
         return sgram_freqs
 
     @classmethod
@@ -405,8 +468,11 @@ class SkipScheme(BPEScheme):
             freq = sum(instances.values())
             if freq < min_freq:
                 continue
-            words = name.split(cls.space_char)[:-1]
-            word_freqs = [0 if cls.skip_char in word else term_freqs[word]
+            
+            exname = name.replace(cls.space_char, f'{cls.space_char} ')
+            exname = exname.replace(cls.skip_char, f'{cls.skip_char} ')
+            words = exname.split()
+            word_freqs = [0 if cls.skip_char in word else term_freqs[word[:-1]]
                             for word in words]
             ninstances = len(instances.keys())
             max_prob =  max([val/freq for val in instances.values()])
@@ -431,37 +497,46 @@ class SkipScheme(BPEScheme):
         rev_idx = {t.name:t.idx for t in bpes}
         all_words.add(cls.skip_char)
         filtered = []
-        cnt = 2
-        na = 0
-        cons = 0
+        # cnt = 2
+        # na = 0
+        # cons = 0
+
+        # def _twrite(fr, tok, val, stats, status, not_word=None):
+        #     fr.write('\t'.join(map(str,[status, tok.name, tok.freq, val, stats, not_word])))
+        #     fr.write('\n')
+
+        # print(f' Min Instances : {min_instances} , Max Instance Prob : {max_instance_prob}')
+        # fr = open(f'.data.simp/checks/check.{cls.count}.txt', 'w')
+        # cls.count += 1
         for trp in sgrams_list:
             tok, val, stats = trp
             ninstances, max_prob = stats
             if ninstances < min_instances or max_prob > max_instance_prob:
-                cons += 1
+                # cons += 1
+                # _twrite(fr, tok, val, stats, 'Failed')
                 continue
-            # parts = tok.name.replace(cls.space_char, 
-            #                 f'{cls.space_char} ').replace(
-            #                 cls.skip_char, f'{cls.skip_char} ').split()[:-1]
-            # parts = tok.name.split(cls.skip_char)
             xname = tok.name.replace(cls.skip_char, f'{cls.skip_char} ')
             parts = xname.replace(cls.space_char, f'{cls.space_char} ').split()
             not_word = [ part not in all_words 
                                 for part in parts]
-            na += 1
+            # na += 1
             if not any(not_word):
-                if cnt <10:
-                    print(parts)
-                    print(not_word)
-                    print()
-                    cnt+= 1
-                na -= 1
+                # if cnt <10:
+                #     print(parts)
+                #     print(not_word)
+                #     print()
+                #     cnt+= 1
+                # na -= 1
                 kids = [bpes[rev_idx[x]] for x in parts]
                 tok = Type(tok.name, tok.level, tok.idx, 
                                 tok.freq, kids)
                 filtered.append((tok, val, stats))
-        print('Not Passed :', na)
-        print('Failed constraint : ', cons)
+                # _twrite(fr, tok, val, stats, 'Passed', not_word)
+            # else:
+                # _twrite(fr, tok, val, stats, 'Failed', not_word)
+        # print('Not Passed :', na)
+        # print('Failed constraint : ', cons)
+        # fr.close()
         return filtered
 
     @classmethod
@@ -501,9 +576,9 @@ class SkipScheme(BPEScheme):
                                             vocab_size=vocab_size,
                                             init_vocab_factory=init_vocab_factory,
                                             min_co_evidence=DEF_MIN_CO_EV)
-            # BPEScheme.learn(data, vocab_size, term_freqs=term_freqs)
 
         bpe_words = NgramScheme.get_bpe_words(bpe_vocab, all_words)
+        print('Total Words : ', len(bpe_words))
 
         print('Making skipgrams')
         for sg in sgrams:
