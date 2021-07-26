@@ -138,7 +138,7 @@ class NgramScheme(BPEScheme):
                 words = name.split(cls.space_char)[:-1]
                 word_freqs = [term_freqs[word] for word in words]
                 ngrams_list.append(Type(name, freq=freq, idx=0, 
-                                    level=3, kids=word_freqs))
+                                    level=1, kids=word_freqs))
 
         if metric == 'freq':
             sorted_list = [(x,x.freq) for x in ngrams_list]
@@ -477,7 +477,7 @@ class SkipScheme(BPEScheme):
             ninstances = len(instances.keys())
             max_prob =  max([val/freq for val in instances.values()])
             sgrams_list.append(Type(name, freq=freq, idx=0,
-                                    level=3, kids=word_freqs))
+                                    level=1, kids=word_freqs))
             sgrams_stats[name] = (ninstances, max_prob)
 
         if metric == 'freq':
