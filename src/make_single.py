@@ -1,6 +1,7 @@
 import argparse
 from json import load
 
+import shutil
 from pathlib import Path 
 import collections as coll
 from typing import Union, List, Dict, Any, Tuple, Iterator
@@ -76,7 +77,7 @@ def prep_data(train_files:Dict[str, Path], val_files:Dict[str, Path],
 
     return
 
-def prep(configs, work_dir):
+def prep(configs, work_dir, rtg_config_file=None):
     shared = configs['shared']
     data_dir = make_dir(work_dir / 'data')
 
@@ -113,6 +114,13 @@ def prep(configs, work_dir):
             shared, configs['src_len'], configs['tgt_len'],
             configs['truncate'], data_dir)
 
+    with open(work_dir / Path('_PREPARED', 'w')) as fw:
+        pass
+
+    if rtg_config_file is not None:
+        shutil.copy2(rtg_config_file, work_dir / Path('conf.yml'))
+
+
 def parse_args():
     parser = argparse.ArgumentParser(prog="make_single", description="Prepares a single experiment using the conf file")
 
@@ -121,6 +129,7 @@ def parse_args():
                             help='Config file for preparation of the experiment')
     parser.add_argument('-w', '--work_dir', type=Path, 
                             help='Path to the working directory for storing the run')
+    parser.add_argument('-r', '--rtg_config', type=Path, help='Path to the RTG config file to be copied to the prepared run dir.')
 
     ## Parameters : General -------------------------------------------------------------------------------------------
     parser.add_argument('--train_src', type=Path, help='Path to the train src file')
@@ -239,7 +248,11 @@ def main():
 
     configs = make_configs(args)
     work_dir = make_dir(args.work_dir)
-    prep(configs, work_dir)
+    
+    if args.conf_file is not None:
+        shutil.copy2(args.conf_file, work_dir / Path('prep.yml'))
+    
+    prep(configs, work_dir, args.rtg_config)
 
 if __name__ == "__main__":
     main()
