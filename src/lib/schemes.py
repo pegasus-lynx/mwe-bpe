@@ -165,7 +165,7 @@ class NgramScheme(BPEScheme):
             not_word = [ part not in words_set for part in parts]
             if not any(not_word):
                 kids = [bpes[rev_idx[x]] for x in parts]
-                tok = Type(tok.name, tok.level, tok.idx, tok.freq, kids=kids)
+                tok = Type(tok.name, 4, tok.idx, tok.freq, kids=kids)
                 filtered.append((tok, val))
         return filtered
 
@@ -528,7 +528,7 @@ class SkipScheme(BPEScheme):
                 #     cnt+= 1
                 # na -= 1
                 kids = [bpes[rev_idx[x]] for x in parts]
-                tok = Type(tok.name, tok.level, tok.idx, 
+                tok = Type(tok.name, 5, tok.idx, 
                                 tok.freq, kids)
                 filtered.append((tok, val, stats))
                 # _twrite(fr, tok, val, stats, 'Passed', not_word)

@@ -1,4 +1,5 @@
 import argparse
+import os
 from json import load
 
 import shutil
@@ -14,6 +15,13 @@ from lib.misc import read_conf, make_dir
 from lib.schemes import load_scheme, MWE_MIN_FREQ
 
 ds_keys = ['src','tgt']
+
+def make_file(destination,source=None):
+    if source is None:
+        fw = open(destination, 'w')
+        fw.close()
+    else:
+        shutil.copy2(source,destination)
 
 def uniq_reader_func(*args) -> Iterator[str]:
     recs = set()
@@ -98,7 +106,9 @@ def prep(configs, work_dir, rtg_config_file=None):
         'shared': data_dir / 'nlcodec.shared.model'
     }
 
-    prep_vocabs(train_files, vocab_files, 
+    vcb_flag = work_dir / Path('_VOCABS')
+    if not vcb_flag.exists():
+        prep_vocabs(train_files, vocab_files, 
                 configs['pieces'], shared, vocab_sizes, 
                 configs.get('ngram_sorter', 'freq'),
                 configs.get('skipgram_sorter', 'freq'),
@@ -109,17 +119,24 @@ def prep(configs, work_dir, rtg_config_file=None):
                 configs.get('min_freq', 0),
                 configs.get('min_instances', 0),
                 configs.get('max_instance_probs', 1))
+        make_file(vcb_flag)
 
-    prep_data(train_files, val_files, vocab_files, configs['pieces'],
+    data_flag = work_dir / Path('_DATA')
+    if not data_flag.exists():
+        prep_data(train_files, val_files, vocab_files, configs['pieces'],
             shared, configs['src_len'], configs['tgt_len'],
             configs['truncate'], data_dir)
+        make_file(data_flag)
 
-    with open(work_dir / Path('_PREPARED', 'w')) as fw:
-        pass
-
+    make_file(work_dir / Path('_PREPARED'))
+    
     if rtg_config_file is not None:
-        shutil.copy2(rtg_config_file, work_dir / Path('conf.yml'))
+        make_file(work_dir / Path('conf.yml'), rtg_config_file)
 
+    if vcb_flag.exists():
+        os.remove(vcb_flag)
+    if data_flag.exists():
+        os.remove(data_flag)
 
 def parse_args():
     parser = argparse.ArgumentParser(prog="make_single", description="Prepares a single experiment using the conf file")
@@ -250,7 +267,7 @@ def main():
     work_dir = make_dir(args.work_dir)
     
     if args.conf_file is not None:
-        shutil.copy2(args.conf_file, work_dir / Path('prep.yml'))
+        make_file(work_dir / Path('prep.yml'), args.conf_file)
     
     prep(configs, work_dir, args.rtg_config)
 
