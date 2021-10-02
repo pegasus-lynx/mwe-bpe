@@ -1,5 +1,6 @@
 # Excluding dataset, embeddings and processed files
 /data/*
+/data.simp/*
 /results/*
 /details/*
 
