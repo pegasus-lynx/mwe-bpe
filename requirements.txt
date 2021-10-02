@@ -13,7 +13,6 @@ indicnlp==0.0.1
 joblib==1.0.0
 Markdown==3.3.3
 mosestokenizer==1.1.0
-nlcodec==0.3.0
 numpy==1.19.4
 oauthlib==3.1.0
 openfile==0.0.7

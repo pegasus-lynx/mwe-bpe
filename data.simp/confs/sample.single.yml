@@ -1,0 +1,25 @@
+train_src: ../data.simp/ds/enhi/train.hi.tok
+train_tgt: ../data.simp/ds/enhi/train.en.tok
+valid_src: ../data.simp/ds/enhi/dev.hi.tok
+valid_tgt: ../data.simp/ds/enhi/dev.en.tok
+truncate: True
+src_len: 512
+tgt_len: 512
+shared: False
+# max_types: 4000
+max_src_types: 4000
+max_tgt_types: 4000
+pieces: ngram
+min_freq: 100
+ngram_sorter: naive_pmi
+include_ngrams:
+  - 2
+  - 3
+max_ngrams: 400
+# skipgram_sorter: freq
+# include_skipgrams: 
+  # - 2 3
+  # - 2 1
+# max_skipgrams: 400
+# min_instances: 15
+# max_instance_probs: 0.1
