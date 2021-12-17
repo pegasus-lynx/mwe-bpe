@@ -1,9 +1,12 @@
 import gzip
 import json
-import uuid
+
+import shutil
 from datetime import datetime
 from pathlib import Path
-from typing import List, Union, Dict
+from typing import List, Union, Dict, Iterator
+
+from nlcodec.utils import IO as IO_nlcodec
 
 # Defining commonly used types
 Filepath = Union[Path,str]
@@ -24,10 +27,8 @@ def make_dir(path:Filepath):
         log(f'>> Making Directory {path.name}',1)    
     return path
 
-def read_conf(conf_file:Union[str,Path], conf_type:str='yaml'):
-    if type(conf_file) == str:
-        conf_file = Path(conf_file)
-
+def read_conf(conf_file:Filepath, conf_type:str='yaml'):
+    conf_file = Path(conf_file)
     if conf_type in ['yaml', 'yml']:
         from ruamel.yaml import YAML
         yaml = YAML(typ='safe')
@@ -35,6 +36,17 @@ def read_conf(conf_file:Union[str,Path], conf_type:str='yaml'):
     if conf_type == 'json':
         fr = open(conf_file, 'r')
         return json.load(fr)
+    return None
+
+def write_conf(configs_dict:Dict, output_file:Filepath, conf_type:str='yaml'):
+    output_file=Path(output_file)
+    fw = open(output_file, 'w')
+    if conf_type in ['yaml', 'yml']:
+        from ruamel.yaml import YAML
+        yaml = YAML(typ='safe')
+        yaml.dump(configs_dict, fw)
+    if conf_type == 'json':
+        json.dump(configs_dict, fw)
     return None
 
 def eval_file(detok_hyp:Path, ref:Path, lowercase=True):
@@ -45,6 +57,23 @@ def eval_file(detok_hyp:Path, ref:Path, lowercase=True):
     bleu_str = bleu.format()
     log(f'BLEU {detok_hyp} : {bleu_str}',2)
     return f'BLEU {detok_hyp} : {bleu_str}'
+
+def make_file(destination,source=None):
+    if source is None:
+        fw = open(destination, 'w')
+        fw.close()
+    else:
+        shutil.copy2(source,destination)
+
+def uniq_reader_func(*args) -> Iterator[str]:
+    recs = set()
+    for fpath in args:
+        with IO_nlcodec.reader(fpath) as fr:
+            for line in fr:
+                line = line.strip()
+                recs.add(line)
+    return recs
+
 
 class FileReader(object):
     def __init__(self, filepaths:List[Path], segmented=True):
@@ -89,7 +118,7 @@ class FileWriter(object):
             self.newline()
         self.fw.close()
 
-    def textlines(self, texts:List[Union[str or Path]]):
+    def textlines(self, texts:List[Union[str, Path]]):
         for text in texts:
             self.textline(text)
 
@@ -127,6 +156,7 @@ class FileWriter(object):
     def newline(self):
         self.fw.write('\n')
 
+# For backporting purpose only
 class IO:
     """File opener and automatic closer"""
 

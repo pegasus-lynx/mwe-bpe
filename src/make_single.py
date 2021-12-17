@@ -2,35 +2,18 @@ import argparse
 import os
 from json import load
 
-import shutil
 from pathlib import Path 
 import collections as coll
-from typing import Union, List, Dict, Any, Tuple, Iterator
+from typing import List, Dict, Tuple
 
-from nlcodec.utils import IO
+
 from nlcodec import Type
 from rtg.data.dataset import TSVData, SqliteFile
 
-from lib.misc import read_conf, make_dir
+from lib.misc import read_conf, make_dir, make_file, uniq_reader_func
 from lib.schemes import load_scheme, MWE_MIN_FREQ
 
 ds_keys = ['src','tgt']
-
-def make_file(destination,source=None):
-    if source is None:
-        fw = open(destination, 'w')
-        fw.close()
-    else:
-        shutil.copy2(source,destination)
-
-def uniq_reader_func(*args) -> Iterator[str]:
-    recs = set()
-    for fpath in args:
-        with IO.reader(fpath) as fr:
-            for line in fr:
-                line = line.strip()
-                recs.add(line)
-    return recs
 
 def prep_vocabs(train_files:Dict[str,Path], 
         vocab_files:Dict[str,Path], pieces:str, 
@@ -262,7 +245,6 @@ def validated_args(args):
 
 def main():
     args = parse_args()
-
     configs = make_configs(args)
     work_dir = make_dir(args.work_dir)
     
