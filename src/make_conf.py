@@ -3,19 +3,32 @@ import os
 import copy
 from json import load
 
+import re
 from pathlib import Path 
 import collections as coll
 from typing import List, Dict, Tuple
-
 
 from nlcodec import Type
 from rtg.data.dataset import TSVData, SqliteFile
 
 from lib.misc import read_conf, make_dir, make_file, write_conf
 
+def convert_type(value):
+    if value == '':
+        return None
+    if value in ['True', 'true']:
+        return True
+    if value in ['False', 'false']:
+        return False
+    if re.match("-?\d+", value):
+        return int(value)
+    if re.match("-?\d+\.\d*", value):
+        return float(value)
+    return value
 
-# create a keyvalue class
-class keyvalue(argparse.Action):
+
+# create a args2dict_action class
+class args2dict_action(argparse.Action):
     # Constructor calling
     def __call__( self , parser, namespace,
                  values, option_string = None):
@@ -25,7 +38,10 @@ class keyvalue(argparse.Action):
             # split it into key and value
             key, value = value.split('=')
             if ',' in value:
-                value = value.split(',')
+                value = [convert_type(x) for x in value.split(',')]
+            else:
+                value = convert_type(value)
+
             # assign into dictionary
             getattr(namespace, self.dest)[key] = value
 
@@ -45,7 +61,6 @@ def remove_none_values(configs, trimmed_configs=None):
             if value is None:
                 del trimmed_configs[key]
     return trimmed_configs
-
 
 def dfs_update(configs, kwargs, keys):
     for key in configs.keys():
@@ -76,22 +91,30 @@ def parse_args():
                             help='Path to the working directory for storing the prepared config files.')
     parser.add_argument('-n', '--output_filename', type=str)
 
-    parser.add_argument('--kwargs', nargs='*', action=keyvalue)
+    parser.add_argument('--kwargs', nargs='*', action=args2dict_action)
 
     return parser.parse_args()
     
 def main():
+
+    print("Parsing args ...")
     args = parse_args()
 
     # Read Base Confs
+    print("Reading configs ...")
     base_configs = read_conf(args.base_config_file, 'yaml')
     
     # Update Confs
-    updated_configs = update_configs(base_configs, args.kwrgs)
+    print("Updating configs ...")
+    updated_configs = update_configs(base_configs, args.kwargs)
 
     # Save Confs
+    print("Making Directory ...")
     make_dir(args.work_dir)
+
     output_file = args.work_dir / Path(args.output_filename)
+
+    print("Writinh configs to : {}".format(str(output_file)))
     write_conf(updated_configs, output_file)
 
 if __name__ == "__main__":

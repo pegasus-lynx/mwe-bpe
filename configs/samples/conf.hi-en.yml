@@ -58,8 +58,8 @@ tester:
     - data/dev.en.txt
   # in case we want to use external de tokenizer. interface:: $detokenizer < $out > out.entok
   # by default it uses moses-tokenizer python wrapper to perl script
-  detokenizer: cut -f1 | sed 's/<unk>//g' | python -m indicnlp.tokenize.indic_detokenize
-    /dev/stdin /dev/stdout hi
+  # detokenizer: cut -f1 | sed 's/<unk>//g' | python -m indicnlp.tokenize.indic_detokenize
+  #   /dev/stdin /dev/stdout hi
 trainer:
   init_args:
     chunk_size: 10  # generation in chunks of time steps to reduce memory consumption

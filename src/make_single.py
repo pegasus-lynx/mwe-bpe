@@ -11,7 +11,9 @@ from nlcodec import Type
 from rtg.data.dataset import TSVData, SqliteFile
 
 from lib.misc import read_conf, make_dir, make_file, uniq_reader_func
-from lib.schemes import load_scheme, MWE_MIN_FREQ
+# from lib.schemes import load_scheme, MWE_MIN_FREQ
+from nlcodec.codec import load_scheme, MWE_MIN_FREQ
+
 
 ds_keys = ['src','tgt']
 
@@ -68,7 +70,7 @@ def prep_data(train_files:Dict[str, Path], val_files:Dict[str, Path],
 
     return
 
-def prep(configs, work_dir, rtg_config_file=None):
+def prep(configs, work_dir):
     shared = configs['shared']
     data_dir = make_dir(work_dir / 'data')
 
@@ -112,14 +114,11 @@ def prep(configs, work_dir, rtg_config_file=None):
         make_file(data_flag)
 
     make_file(work_dir / Path('_PREPARED'))
-    
-    if rtg_config_file is not None:
-        make_file(work_dir / Path('conf.yml'), rtg_config_file)
 
-    if vcb_flag.exists():
-        os.remove(vcb_flag)
     if data_flag.exists():
         os.remove(data_flag)
+    if vcb_flag.exists():
+        os.remove(vcb_flag)
 
 def parse_args():
     parser = argparse.ArgumentParser(prog="make_single", description="Prepares a single experiment using the conf file")
@@ -129,7 +128,6 @@ def parse_args():
                             help='Config file for preparation of the experiment')
     parser.add_argument('-w', '--work_dir', type=Path, 
                             help='Path to the working directory for storing the run')
-    parser.add_argument('-r', '--rtg_config', type=Path, help='Path to the RTG config file to be copied to the prepared run dir.')
 
     ## Parameters : General -------------------------------------------------------------------------------------------
     parser.add_argument('--train_src', type=Path, help='Path to the train src file')
@@ -167,9 +165,10 @@ def parse_args():
     parser.add_argument('--max_skipgrams', type=int, 
                             help='Maximum skipgrams to be included in the vocab')
 
-    ## Parameters : Filtering ngrams / skipgrams ---------------------------------------------------------------------- 
-    parser.add_argument('--min_freq', type=int, 
+    ## Parameters : MWE Filtering ---------------------------------------------------------------------- 
+    parser.add_argument('--min_freq', type=int, default=0,
                             help='Minimum frequency for ngrams / sgrams / mwes')
+    ## Parameters : Filtering skipgrams ---------------------------------------------------------------------- 
     parser.add_argument('--min_instances', type=int, 
                             help='Minimum number of instances', default=0)
     parser.add_argument('--max_instance_probs', type=float, 
@@ -182,8 +181,11 @@ def make_configs(args):
         configs = read_conf(args.conf_file)
         from_conf_file = True
     else:
-        configs = validated_args(args)
+        validate_args(args)
+        configs = args2configs(args)
         from_conf_file = False
+
+    validate_configs(configs)
 
     if 'include_skipgrams' in configs.keys():
         raw_skips = configs['include_skipgrams']
@@ -195,14 +197,66 @@ def make_configs(args):
     
     return configs
 
-def validated_args(args):
+def validate_args(args):
+    assert args.train_src.exists() and args.train_tgt.exists()
+    assert args.valid_src.exists() and args.valid_tgt.exists()
+    if args.shared:
+        assert args.max_types is not None
+    else:
+        assert args.max_src_types is not None
+        assert args.mac_tgt_types is not None
+
+    assert args.min_freq >= 0
+    if args.pieces in ['ngram', 'mwe']:
+        assert args.max_ngrams is not None
+        assert args.include_ngrams is not None
+    if args.pieces in ['skipgram', 'mwe']:
+        assert args.max_skipgrams is not None
+        assert args.include_skipgrams is not None    
+        assert args.min_instances >= 0
+        assert args.max_instance_probs <= 1.0
+
+def validate_configs(configs):
+
+    def assert_key(key, configs):
+            assert key in configs.keys(), str.format("Key : {} is not defined in configs", key)
+            assert configs[key] is not None, str.format("Value can not be none. [ Key : {} ]", key)
+
+    def assert_keys(keys, configs):
+        for key in keys:
+            assert_key(key, configs)
+
+    for key in ["train_src", "train_tgt", "valid_src", "valid_tgt"]:
+        assert_key(key, configs)
+        assert configs[key].exists(), str.format("File : {} does not exist. [ Key : {} ]", configs[key], key)
+
+    assert_keys(["shared", "min_freq", "pieces"], configs)
+
+    if configs["shared"]:
+        assert_key("max_types", configs)
+    else:
+        assert_keys(["max_src_types", "max_tgt_types"], configs)
+
+    assert configs["min_freq"] >= 0, str.format("Value of min_freq must be >=0")
+
+    allowed_pieces = ['ngram', 'skipgram', 'mwe', 'bpe', 'word', 'char']
+    assert configs["pieces"] in allowed_pieces, str.format(
+                    "Value {} is not supported. Allowed values are : {}", 
+                    configs['pieces'], str(allowed_pieces))
+
+    if configs["pieces"] in ['ngram', 'mwe']:
+        assert_keys(["max_ngrams", "include_ngrams"], configs)
+    if configs["pieces"] in ['skipgram', 'mwe']:
+        assert_keys(["max_skipgrams", "include_skipgrams", "min_instances", "max_instance_probs"], configs)  
+        assert configs["min_instances"] >= 0, str.format("Min instances of distinct skipgrams should be >= 0")
+        assert configs["max_instance_probs"] <= 1.0, str.format("Max allowed prob of any instance of skipgram, word pair must be less than <= 1.0")
+
+def args2configs(args):
     configs = coll.OrderedDict()
 
-    assert args.train_src.exists() and args.train_tgt.exists()
     configs['train_src'] = args.train_src    
     configs['train_tgt'] = args.train_tgt    
 
-    assert args.valid_src.exists() and args.valid_tgt.exists()
     configs['valid_src'] = args.valid_src    
     configs['valid_tgt'] = args.valid_tgt
 
@@ -212,11 +266,8 @@ def validated_args(args):
 
     configs['shared'] = args.shared
     if args.shared:
-        assert args.max_types is not None
         configs['max_types'] = args.max_types
     else:
-        assert args.max_src_types is not None
-        assert args.mac_tgt_types is not None
         configs['max_src_types'] = args.max_src_types
         configs['max_tgt_types'] = args.max_tgt_types
 
@@ -225,18 +276,13 @@ def validated_args(args):
     configs['sgram_sorter'] = args.sgram_sorter
 
     if args.pieces in ['ngram', 'mwe']:
-        assert args.max_ngrams is not None
-        assert args.include_ngrams is not None
         configs['max_ngrams'] = args.max_ngrams
         configs['include_ngrams'] = args.include_ngrams
+    
     if args.pieces in ['skipgram', 'mwe']:
-        assert args.max_skipgrams is not None
-        assert args.include_skipgrams is not None
         configs['max_skipgrams'] = args.max_skipgrams
         configs['include_skipgrams'] = args.include_skipgrams
 
-    assert args.min_freq >= 0 and args.min_instances >= 0
-    assert args.max_instance_probs <= 1.0
     configs['min_freq'] = args.min_freq
     configs['min_instances'] = args.min_instances
     configs['max_instance_probs'] = args.max_instance_probs
@@ -248,10 +294,14 @@ def main():
     configs = make_configs(args)
     work_dir = make_dir(args.work_dir)
     
+    # The work of this block has been moved to make_conf file.
+    # Keeping this block active just for now.
     if args.conf_file is not None:
-        make_file(work_dir / Path('prep.yml'), args.conf_file)
+        prep_file = work_dir / Path('prep.yml')
+        if not prep_file.exists():
+            make_file(prep_file , args.conf_file)
     
-    prep(configs, work_dir, args.rtg_config)
+    prep(configs, work_dir)
 
 if __name__ == "__main__":
     main()

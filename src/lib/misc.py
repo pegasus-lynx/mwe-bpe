@@ -23,7 +23,7 @@ def get_now():
 def make_dir(path:Filepath):
     path = Path(path)
     if not path.exists():
-        path.mkdir()
+        path.mkdir(parents=True)
         log(f'>> Making Directory {path.name}',1)    
     return path
 
@@ -40,13 +40,13 @@ def read_conf(conf_file:Filepath, conf_type:str='yaml'):
 
 def write_conf(configs_dict:Dict, output_file:Filepath, conf_type:str='yaml'):
     output_file=Path(output_file)
-    fw = open(output_file, 'w')
-    if conf_type in ['yaml', 'yml']:
-        from ruamel.yaml import YAML
-        yaml = YAML(typ='safe')
-        yaml.dump(configs_dict, fw)
-    if conf_type == 'json':
-        json.dump(configs_dict, fw)
+    with open(output_file, 'w') as fw:
+        if conf_type in ['yaml', 'yml']:
+            from ruamel.yaml import YAML
+            yaml = YAML(typ='safe')
+            yaml.dump(configs_dict, fw)
+        if conf_type == 'json':
+            json.dump(configs_dict, fw)
     return None
 
 def eval_file(detok_hyp:Path, ref:Path, lowercase=True):
