@@ -29,7 +29,7 @@ def prep_vocabs(train_files:Dict[str,Path],
     keys = ['shared'] if shared else ['src', 'tgt']
     for key in keys:
         if key == 'shared':
-            corp = uniq_reader_func(*train_files)
+            corp = uniq_reader_func(*train_files.values())
         else:
             corp = uniq_reader_func(train_files[key])
 

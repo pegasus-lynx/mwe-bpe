@@ -3,6 +3,7 @@
 /data.simp/*
 /results/*
 /details/*
+/temp/*
 
 # Excluding .vscode
 *settings.json
