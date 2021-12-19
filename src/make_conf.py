@@ -20,9 +20,9 @@ def convert_type(value):
         return True
     if value in ['False', 'false']:
         return False
-    if re.match("-?\d+", value):
+    if re.fullmatch("-?\d+", value):
         return int(value)
-    if re.match("-?\d+\.\d*", value):
+    if re.fullmatch("-?\d+\.\d*", value):
         return float(value)
     return value
 
@@ -63,8 +63,11 @@ def remove_none_values(configs, trimmed_configs=None):
     return trimmed_configs
 
 def dfs_update(configs, kwargs, keys):
+    print(configs.keys())
     for key in configs.keys():
-        if key in keys:
+        if type(configs[key]) == dict:
+            configs[key] = dfs_update(configs[key], kwargs, keys)
+        elif key in keys:
             if type(configs[key]) == dict:
                 configs[key] = dfs_update(configs[keys], kwargs, keys)
             else:
@@ -114,7 +117,7 @@ def main():
 
     output_file = args.work_dir / Path(args.output_filename)
 
-    print("Writinh configs to : {}".format(str(output_file)))
+    print("Writing configs to : {}".format(str(output_file)))
     write_conf(updated_configs, output_file)
 
 if __name__ == "__main__":

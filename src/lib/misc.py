@@ -43,7 +43,7 @@ def write_conf(configs_dict:Dict, output_file:Filepath, conf_type:str='yaml'):
     with open(output_file, 'w') as fw:
         if conf_type in ['yaml', 'yml']:
             from ruamel.yaml import YAML
-            yaml = YAML(typ='safe')
+            yaml = YAML()
             yaml.dump(configs_dict, fw)
         if conf_type == 'json':
             json.dump(configs_dict, fw)
