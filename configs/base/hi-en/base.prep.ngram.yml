@@ -1,7 +1,7 @@
-train_src: ../data/ds/enhi/train.hi.tok
-train_tgt: ../data/ds/enhi/train.en.tok
-valid_src: ../data/ds/enhi/dev.hi.tok
-valid_tgt: ../data/ds/enhi/dev.en.tok
+train_src: ../data/hi-en/train.hin.tok
+train_tgt: ../data/hi-en/train.eng.tok
+valid_src: ../data/hi-en/IITB-hien_dev-3.hin.tok
+valid_tgt: ../data/hi-en/IITB-hien_dev-3.eng.tok
 truncate: True
 src_len: 512
 tgt_len: 512
@@ -18,8 +18,8 @@ include_ngrams:
 max_ngrams: 400
 # skipgram_sorter: freq
 # include_skipgrams: 
-  # - 2 3
-  # - 2 1
+#   - 2 3
+#   - 2 1
 # max_skipgrams: 400
 # min_instances: 15
 # max_instance_probs: 0.1

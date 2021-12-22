@@ -506,7 +506,7 @@ class SkipScheme(BPEScheme):
         #     fr.write('\n')
 
         # print(f' Min Instances : {min_instances} , Max Instance Prob : {max_instance_prob}')
-        # fr = open(f'.data.simp/checks/check.{cls.count}.txt', 'w')
+        # fr = open(f'.data/checks/check.{cls.count}.txt', 'w')
         # cls.count += 1
         for trp in sgrams_list:
             tok, val, stats = trp

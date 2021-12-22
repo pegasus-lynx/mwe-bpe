@@ -37,11 +37,11 @@ prep: # data preparation
   shared_vocab: false  # true means same vocab for src and tgt, false means different vocabs
   src_len: 512   # longer sentences, decision is made as per 'truncate={true,false}'
   tgt_len: 512
-  train_src: data/nlcodec.src.model
-  train_tgt: data/nlcodec.tgt.model
+  train_src: ../data/hi-en/train.hin.tok
+  train_tgt: ../data/hi-en/train.eng.tok
   truncate: true   # what to do with longer sentences: if true truncate at src_len or tgt_len; if false filter away
-  valid_src: data/dev.hi.tok
-  valid_tgt: data/dev.en.tok
+  valid_src: ../data/hi-en/IITB-hien_dev-3.hin.tok
+  valid_tgt: ../data/hi-en/IITB-hien_dev-3.eng.tok
 tester:
   decoder:
     beam_size: 4
@@ -50,12 +50,12 @@ tester:
     ensemble: 10
     max_len: 50
   suit:  # suit of tests to run after the training
-    test:
-    - data/test.hi.tok
-    - data/test.en.txt
-    dev:
-    - data/dev.hi.tok
-    - data/dev.en.txt
+    test-IITB:
+    - ../data/hi-en/IITB-hien_test-3.hin.tok
+    - ../data/hi-en/IITB-hien_test-3.eng
+    dev-IITB:
+    - ../data/hi-en/IITB-hien_dev-3.hin.tok
+    - ../data/hi-en/IITB-hien_dev-3.eng
   # in case we want to use external de tokenizer. interface:: $detokenizer < $out > out.entok
   # by default it uses moses-tokenizer python wrapper to perl script
   # detokenizer: cut -f1 | sed 's/<unk>//g' | python -m indicnlp.tokenize.indic_detokenize
