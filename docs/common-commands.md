@@ -2,7 +2,7 @@
 
 All these commands work from `$repo_root/src`
 
-1. Making prep.yml : 
+1. Making prep.yml : ( Not needed for baselines )
 
 ```
     python -m make_conf -n prep.yml -w <work_dir> -c <path_to_base_config> --kwargs max_src_types=<size> max_tgt_types=<size>
@@ -10,7 +10,7 @@ All these commands work from `$repo_root/src`
 
 2. Making conf.yml :
 ```
-    python -m make_conf -n conf.yml -w <work_dir> -c ../configs/base/hi-en/base.conf.yml --kwargs src_vocab=<size> tgt_vocab=<size> max_src_vocab=<size> max_tgt_vocab=<size> pieces=bpe
+    python -m make_conf -n conf.yml -w <work_dir> -c ../configs/base/hi-en/base.conf.yml --kwargs src_vocab=<size> tgt_vocab=<size> max_src_vocab=<size> max_tgt_vocab=<size> pieces=bpe codec_lib=sentpiece
 ```
 
 3. Running the experiment :
