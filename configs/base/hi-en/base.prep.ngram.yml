@@ -1,7 +1,7 @@
 train_src: ../data/hi-en/train.hin.tok
 train_tgt: ../data/hi-en/train.eng.tok
-valid_src: ../data/hi-en/IITB-hien_dev-3.hin.tok
-valid_tgt: ../data/hi-en/IITB-hien_dev-3.eng.tok
+valid_src: ../data/hi-en/tests/IITB-hien_dev-3.hin.tok
+valid_tgt: ../data/hi-en/tests/IITB-hien_dev-3.eng.tok
 truncate: True
 src_len: 512
 tgt_len: 512

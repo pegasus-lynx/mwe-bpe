@@ -40,8 +40,8 @@ prep: # data preparation
   train_src: ../data/hi-en/train.hin.tok
   train_tgt: ../data/hi-en/train.eng.tok
   truncate: true   # what to do with longer sentences: if true truncate at src_len or tgt_len; if false filter away
-  valid_src: ../data/hi-en/IITB-hien_dev-3.hin.tok
-  valid_tgt: ../data/hi-en/IITB-hien_dev-3.eng.tok
+  valid_src: ../data/hi-en/tests/IITB-hien_dev-3.hin.tok
+  valid_tgt: ../data/hi-en/tests/IITB-hien_dev-3.eng.tok
 tester:
   decoder:
     beam_size: 4
@@ -51,11 +51,11 @@ tester:
     max_len: 50
   suit:  # suit of tests to run after the training
     test-IITB:
-    - ../data/hi-en/IITB-hien_test-3.hin.tok
-    - ../data/hi-en/IITB-hien_test-3.eng
+    - ../data/hi-en/tests/IITB-hien_test-3.hin.tok
+    - ../data/hi-en/tests/IITB-hien_test-3.eng
     dev-IITB:
-    - ../data/hi-en/IITB-hien_dev-3.hin.tok
-    - ../data/hi-en/IITB-hien_dev-3.eng
+    - ../data/hi-en/tests/IITB-hien_dev-3.hin.tok
+    - ../data/hi-en/tests/IITB-hien_dev-3.eng
   # in case we want to use external de tokenizer. interface:: $detokenizer < $out > out.entok
   # by default it uses moses-tokenizer python wrapper to perl script
   # detokenizer: cut -f1 | sed 's/<unk>//g' | python -m indicnlp.tokenize.indic_detokenize
