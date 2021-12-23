@@ -12,7 +12,7 @@ from rtg.data.dataset import TSVData, SqliteFile
 
 from lib.misc import read_conf, make_dir, make_file, uniq_reader_func
 # from lib.schemes import load_scheme, MWE_MIN_FREQ
-from nlcodec.codec import load_scheme, MWE_MIN_FREQ
+from nlcodec.codec import MWE_MIN_FREQ, get_scheme
 
 
 ds_keys = ['src','tgt']
@@ -25,7 +25,7 @@ def prep_vocabs(train_files:Dict[str,Path],
         max_skipgrams:int=0, include_skipgrams:List[Tuple[int,int]]=None, 
         min_freq:int=MWE_MIN_FREQ, min_instances:int=0, max_instance_probs:float=1.0):
     
-    scheme = load_scheme(pieces)
+    scheme = get_scheme(pieces)
     keys = ['shared'] if shared else ['src', 'tgt']
     for key in keys:
         if key == 'shared':
@@ -45,7 +45,7 @@ def prep_vocabs(train_files:Dict[str,Path],
 def prep_data(train_files:Dict[str, Path], val_files:Dict[str, Path], 
             vocab_files:Dict[str, Path], pieces:str, shared:bool, 
             src_len:int, tgt_len:int, truncate:bool, work_dir:Path):
-    scheme = load_scheme(pieces)
+    scheme = get_scheme(pieces)
     
     codecs = {}
     for key, fpath in vocab_files.items():
