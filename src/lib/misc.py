@@ -51,12 +51,17 @@ def write_conf(configs_dict:Dict, output_file:Filepath, conf_type:str='yaml'):
 
 def eval_file(detok_hyp:Path, ref:Path, lowercase=True):
     from sacrebleu import corpus_bleu, BLEU
-    detok_lines = IO.get_lines(detok_hyp)
-    ref_lines = [IO.get_lines(ref) if isinstance(ref, Path) else ref]
-    bleu = corpus_bleu(sys_stream=detok_lines, ref_streams=ref_lines, lowercase=lowercase)
-    bleu_str = bleu.format()
-    log(f'BLEU {detok_hyp} : {bleu_str}',2)
-    return f'BLEU {detok_hyp} : {bleu_str}'
+    # detoks = IO.get_lines(detok_hyp)
+    # refs = [IO.get_lines(ref) if isinstance(ref, Path) else ref]
+    
+    detoks = [x for x in IO.get_lines(detok_hyp)]
+    refs = [x for x in IO.get_lines(ref)]
+    
+    bleu = corpus_bleu(detoks, [refs], lowercase=lowercase)
+    return bleu
+    # bleu_str = bleu.format()
+    # log(f'BLEU {detok_hyp} : {bleu_str}',2)
+    # return f'BLEU {detok_hyp} : {bleu_str}'
 
 def make_file(destination,source=None):
     if source is None:
