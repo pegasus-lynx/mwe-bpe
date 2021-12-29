@@ -2,6 +2,7 @@
 # Range of variables for experiments
 vocab_sizes=(2000 4000 8000 16000)
 
+repo_root=""
 base_exp_dir="../../exps/hi-en/baseline"
 base_conf_file="../configs/base/base.conf.yml"
 base_prep_file=""
@@ -25,7 +26,8 @@ make_dir () {
     fi
 }
 
-# Change directory to bigram-bpe repo root
+# Change directory to bigram-bpe repo root. This will allow to run the script from outside the repo.
+cd $repo_root
 
 for sz in ${vocab_sizes[@]}
 do
