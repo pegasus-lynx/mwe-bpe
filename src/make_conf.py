@@ -63,7 +63,7 @@ def remove_none_values(configs, trimmed_configs=None):
     return trimmed_configs
 
 def dfs_update(configs, kwargs, keys):
-    print(configs.keys())
+    # print(configs.keys())
     for key in configs.keys():
         if type(configs[key]) == dict:
             configs[key] = dfs_update(configs[key], kwargs, keys)
@@ -102,6 +102,9 @@ def main():
 
     print("Parsing args ...")
     args = parse_args()
+
+    print("Parameters to be updated ...")
+    print(args.kwargs)
 
     # Read Base Confs
     print("Reading configs ...")
