@@ -45,7 +45,7 @@ prep: # data preparation
 tester:
   decoder:
     beam_size: 4
-    batch_size: 6000
+    batch_size: 18000
     lp_alpha: 0.6
     ensemble: 10
     max_len: 50
@@ -63,8 +63,9 @@ tester:
   detokenizer: cut -f1 | sed 's/<unk>//g' | sacremoses -l en detokenize
 trainer:
   init_args:
-    chunk_size: 10  # generation in chunks of time steps to reduce memory consumption
-  batch_size: 1000  # not exceeding these many tokens (including paddings). in tensor2tensor it is mean batch size
+    chunk_size: 60  # generation in chunks of time steps to reduce memory consumption
+    grad_accum: 1
+  batch_size: 24000  # not exceeding these many tokens (including paddings). in tensor2tensor it is mean batch size
   check_point: 1000  # how often to checkpoint?
   keep_models: 3   # how many checkpoints to keep on disk (small enough to save disk, large enough for checkpt averaging
   steps: 200000   # how many steps to train
