@@ -61,6 +61,7 @@ tester:
     - ../data/de-en/tests/newstest2014_deen.eng
   # in case we want to use external de tokenizer. interface:: $detokenizer < $out > out.entok
   # by default it uses moses-tokenizer python wrapper to perl script
+  detokenizer: cut -f1 | sed 's/<unk>//g' | sacremoses -l en detokenize
 trainer:
   init_args:
     chunk_size: 10  # generation in chunks of time steps to reduce memory consumption
