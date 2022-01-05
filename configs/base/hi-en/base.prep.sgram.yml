@@ -15,10 +15,9 @@ min_freq: 100
 # include_ngrams:
 #   - 2
 #   - 3
-max_ngrams: 400
-skipgram_sorter: freq
+# max_ngrams: 400
+skipgram_sorter: skip_pmi
 include_skipgrams: 
-  - 2 3
   - 2 1
 max_skipgrams: 400
 min_instances: 15
