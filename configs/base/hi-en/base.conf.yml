@@ -68,7 +68,7 @@ trainer:
   batch_size: 24000  # not exceeding these many tokens (including paddings). in tensor2tensor it is mean batch size
   check_point: 1000  # how often to checkpoint?
   keep_models: 3   # how many checkpoints to keep on disk (small enough to save disk, large enough for checkpt averaging
-  steps: 200000   # how many steps to train
+  steps: 100000   # how many steps to train
   keep_in_mem: true
   early_stop:
     patience: 5
