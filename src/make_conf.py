@@ -85,6 +85,27 @@ def update_configs(configs, kwargs):
     trimmed_configs = remove_none_values(updated_configs)
     return trimmed_configs
 
+def update_paths(configs, repo_root:Path, name:str):
+    repo_root = repo_root.resolve()
+    print(repo_root)
+    prep_paths = ['train_src', 'train_tgt', 'valid_src', 'valid_tgt']
+    if name == 'prep.yml':
+        for pth in prep_paths:
+            new_path = repo_root / Path(configs[pth]) 
+            configs[pth] = str(new_path.resolve())            
+    else:
+        for pth in prep_paths:
+            new_path = repo_root / Path(configs['prep'][pth]) 
+            configs['prep'][pth] = str(new_path.resolve())
+        
+        suites = configs['tester']['suit'].keys()
+        for suite in suites:
+            for i in range(0,2):
+                new_path = repo_root / Path(configs['tester']['suit'][suite][i])
+                configs['tester']['suit'][suite][i] = str(new_path.resolve())
+
+    return configs
+ 
 def parse_args():
     parser = argparse.ArgumentParser(prog='make_conf', description="Prepares custom config files from base config files")
 
@@ -92,6 +113,8 @@ def parse_args():
                             help='Base config file for preparation of new config files.')
     parser.add_argument('-w', '--work_dir', type=Path, 
                             help='Path to the working directory for storing the prepared config files.')
+    parser.add_argument('-r', '--repo_root', type=Path, 
+                            help="Path to the root of the this repository.")
     parser.add_argument('-n', '--output_filename', type=str)
 
     parser.add_argument('--kwargs', nargs='*', action=args2dict_action)
@@ -103,16 +126,25 @@ def main():
     print("Parsing args ...")
     args = parse_args()
 
-    print("Parameters to be updated ...")
-    print(args.kwargs)
-
     # Read Base Confs
     print("Reading configs ...")
     base_configs = read_conf(args.base_config_file, 'yaml')
-    
-    # Update Confs
-    print("Updating configs ...")
-    updated_configs = update_configs(base_configs, args.kwargs)
+
+    if args.repo_root is not None:
+        # Update Paths
+        print("Updating Paths")
+        base_configs = update_paths(base_configs, args.repo_root, args.output_filename)
+
+    if args.kwargs is not None:
+        print("Parameters to be updated ...")
+        print(args.kwargs)
+
+        if 'include_ngrams' in args.kwargs.keys():
+            args.kwargs['include_ngrams'] = [ args.kwargs['include_ngrams'] ]
+
+        # Update Confs
+        print("Updating configs ...")
+        base_configs = update_configs(base_configs, args.kwargs)
 
     # Save Confs
     print("Making Directory ...")
@@ -121,7 +153,7 @@ def main():
     output_file = args.work_dir / Path(args.output_filename)
 
     print("Writing configs to : {}".format(str(output_file)))
-    write_conf(updated_configs, output_file)
+    write_conf(base_configs, output_file)
 
 if __name__ == "__main__":
     main()

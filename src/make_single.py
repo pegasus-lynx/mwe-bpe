@@ -18,16 +18,16 @@ from nlcodec.codec import MWE_MIN_FREQ, get_scheme
 ds_keys = ['src','tgt']
 
 def prep_vocabs(train_files:Dict[str,Path], 
-        vocab_files:Dict[str,Path], pieces:str, 
+        vocab_files:Dict[str,Path], pieces:Dict[str,str], 
         shared:bool, vocab_sizes:Dict[str,int], 
         ngram_sorter:str, skipgram_sorter:str,
         max_ngrams:int=0, include_ngrams:List[int]=None, 
         max_skipgrams:int=0, include_skipgrams:List[Tuple[int,int]]=None, 
         min_freq:int=MWE_MIN_FREQ, min_instances:int=0, max_instance_probs:float=1.0):
     
-    scheme = get_scheme(pieces)
     keys = ['shared'] if shared else ['src', 'tgt']
     for key in keys:
+        scheme = get_scheme(pieces[key])
         if key == 'shared':
             corp = uniq_reader_func(*train_files.values())
         else:
@@ -43,12 +43,12 @@ def prep_vocabs(train_files:Dict[str,Path],
         Type.write_out(vocab, vocab_files[key])
 
 def prep_data(train_files:Dict[str, Path], val_files:Dict[str, Path], 
-            vocab_files:Dict[str, Path], pieces:str, shared:bool, 
+            vocab_files:Dict[str, Path], pieces:Dict[str, str], shared:bool, 
             src_len:int, tgt_len:int, truncate:bool, work_dir:Path):
-    scheme = get_scheme(pieces)
     
     codecs = {}
     for key, fpath in vocab_files.items():
+        scheme = get_scheme(pieces[key])
         if fpath.exists():
             table, _ = Type.read_vocab(fpath)
             codecs[key] = scheme(table)
@@ -91,10 +91,21 @@ def prep(configs, work_dir):
         'shared': data_dir / 'nlcodec.shared.model'
     }
 
+    default_scheme = configs.get('pieces', "bpe")
+    pieces = { 
+        'src':default_scheme, 
+        'tgt':default_scheme, 
+        'shared':default_scheme 
+    }
+    if configs.get('src_pieces') is not None:
+        pieces['src'] = configs.get('src_pieces')
+    if configs.get('tgt_pieces') is not None:
+        pieces['tgt'] = configs.get('tgt_pieces')
+
     vcb_flag = work_dir / Path('_VOCABS')
     if not vcb_flag.exists():
         prep_vocabs(train_files, vocab_files, 
-                configs['pieces'], shared, vocab_sizes, 
+                pieces, shared, vocab_sizes, 
                 configs.get('ngram_sorter', 'freq'),
                 configs.get('skipgram_sorter', 'freq'),
                 configs.get('max_ngrams', 0), 
@@ -108,7 +119,7 @@ def prep(configs, work_dir):
 
     data_flag = work_dir / Path('_DATA')
     if not data_flag.exists():
-        prep_data(train_files, val_files, vocab_files, configs['pieces'],
+        prep_data(train_files, val_files, vocab_files, pieces,
             shared, configs['src_len'], configs['tgt_len'],
             configs['truncate'], data_dir)
         make_file(data_flag)

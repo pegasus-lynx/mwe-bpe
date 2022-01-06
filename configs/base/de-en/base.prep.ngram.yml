@@ -10,6 +10,8 @@ max_types: 4000
 # max_src_types: 4000
 # max_tgt_types: 4000
 pieces: ngram
+# src_pieces: bpe
+# tgt_pieces: bpe
 min_freq: 100
 ngram_sorter: naive_pmi
 include_ngrams:
