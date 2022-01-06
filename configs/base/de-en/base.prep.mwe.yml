@@ -1,7 +1,7 @@
 train_src: ../data/de-en/train.deu.tok
 train_tgt: ../data/de-en/train.eng.tok
-valid_src: ../data/de-en/tests/newstest2018.deu.tok
-valid_tgt: ../data/de-en/tests/newstest2018.eng.tok
+valid_src: ../data/de-en/tests/newstest2018_deen.deu.tok
+valid_tgt: ../data/de-en/tests/newstest2018_deen.eng.tok
 truncate: True
 src_len: 512
 tgt_len: 512

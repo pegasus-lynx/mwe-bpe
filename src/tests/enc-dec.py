@@ -14,6 +14,16 @@ ngram_texts = [
     'Shri Pranab Mukherjee is the president of India'
 ]
 
+decode_seqs = [
+    ['along▁', 'along▁', 'krä', 'ment▁', 'hol', 'zustellen▁', '„▁▂”▁', 'al', 'ate▁', 
+     'al', '„▁▂”▁', 'il▁', 'al', '„▁▂”▁', 'al', 'al', 'al', 'benötigen▁', 'benötigen▁', 
+     'benötigen▁', 'benötigen▁', 'Wach', 'benötigen▁', 'benötigen▁', 'Wach', 'Wach', 'Wach', 
+     'Wach', 'il▁', 'il▁', 'il▁', 'lives▁', 'benötigen▁', 'benötigen▁', 'benötigen▁', 'benötigen▁', 
+     'benötigen▁', 'benötigen▁', 'benötigen▁', 'benötigen▁', 'benötigen▁', 'benötigen▁', 'benötigen▁'], ['benötigen▁', 'benötigen▁', 
+     'benötigen▁', 'benötigen▁', 'benötigen▁', 'benötigen▁', 'hal', 'lives▁', 'lives▁', 'lives▁', 'benötigen▁', 'benötigen▁', 'benötigen▁', 
+     'benötigen▁', 'Wach', 'Wach', 'Wach', 'Wach', 'Wach', 'benötigen▁', 'benötigen▁', 'benötigen▁', 'benötigen▁', 'benötigen▁', 'benötigen▁', 'solchen▁', 'solchen▁', 'Wach', 'benötigen▁', 'benötigen▁', 'benötigen▁', 'benötigen▁', 'Wach', 'Wach', 'Wach', 'Wach', 'benötigen▁', 'benötigen▁', 'Wach', 'Wach', 'Wach', 'Wach', 'lexi', 'lexi', 'lexi', 'lexi', 'Wach', 'Wach', 'Wach', 'Wach', 'along▁', 'along▁', 'along▁', 'along▁', 'along▁', 'along▁', 'Wach', 'Wach', 'Wach']
+]
+
 def cprint(*args):
 
     def _dash():
@@ -41,6 +51,10 @@ def enc_dec(text:str, codec:List['Type']):
             encoded, 'space', parts, 'space', 'dash', 
             'space', decoded, 'dash', 'space')
 
+def decode_only(seq, codec:List['Type']):
+    decoded = codec.decode_str(seq)
+    cprint('space', 'dash', seq, 'dash', 'space', decoded, 'dash', 'space')
+
 def parse_args():
     parser = argparse.ArgumentParser(prog="test.enc-dec")
     parser.add_argument('-w', '--work_dir', type=Path)
@@ -61,38 +75,47 @@ def validate(args):
     assert tgt_vocab.exists()
 
 def main():
-    args = parse_args()
-    validate(args)
+    # args = parse_args()
+    # validate(args)
 
-    vocab_files = {
-        'src': args.work_dir / Path('data/nlcodec.src.model'),
-        'tgt': args.work_dir / Path('data/nlcodec.tgt.model')
-    }
+    # vocab_files = {
+    #     'src': args.work_dir / Path('data/nlcodec.src.model'),
+    #     'tgt': args.work_dir / Path('data/nlcodec.tgt.model')
+    # }
 
-    keys = ['src', 'tgt']
-    codecs = {}
+    from nlcodec.codec import SkipScheme
 
-    if args.nlcodec_load:
-        print('Check Nlcodec Load ...')
-        from nlcodec import load_scheme
-        for key in keys:
-            codecs[key] = load_scheme(vocab_files[key])
-    else:
-        from lib.schemes import load_scheme
-        scheme = load_scheme('ngram' if args.ngram else 'skipgram')
-        for key in keys:
-            table, _ = Type.read_vocab(vocab_files[key])
-            codecs[key] = scheme(table)
+    decoded = SkipScheme.decode_str(decode_seqs[0])
+    cprint('space', 'dash', decode_seqs[0], 'dash', 'space', decoded, 'dash', 'space')
 
-    if args.skip:
-        cprint('space', 'Testing Skipgram Texts : ', 'dash')
-        for text in skip_texts:
-            enc_dec(text, codecs['tgt'])
+    # vocab_file = {
 
-    if args.ngram:
-        cprint('space', 'Testing Ngram Texts : ', 'dash')
-        for text in ngram_texts:
-            enc_dec(text, codecs['tgt'])
+    # }
+
+    # keys = ['src', 'tgt']
+    # codecs = {}
+
+    # if args.nlcodec_load:
+    #     print('Check Nlcodec Load ...')
+    #     from nlcodec import load_scheme
+    #     for key in keys:
+    #         codecs[key] = load_scheme(vocab_files[key])
+    # else:
+    #     from lib.schemes import load_scheme
+    #     scheme = load_scheme('ngram' if args.ngram else 'skipgram')
+    #     for key in keys:
+    #         table, _ = Type.read_vocab(vocab_files[key])
+    #         codecs[key] = scheme(table)
+
+    # if args.skip:
+    #     cprint('space', 'Testing Skipgram Texts : ', 'dash')
+    #     for text in skip_texts:
+    #         enc_dec(text, codecs['tgt'])
+
+    # if args.ngram:
+    #     cprint('space', 'Testing Ngram Texts : ', 'dash')
+    #     for text in ngram_texts:
+    #         enc_dec(text, codecs['tgt'])
 
 if __name__ == "__main__":
     main()

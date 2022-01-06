@@ -40,8 +40,8 @@ prep: # data preparation
   train_src: ../data/de-en/train.deu.tok
   train_tgt: ../data/de-en/train.eng.tok
   truncate: true   # what to do with longer sentences: if true truncate at src_len or tgt_len; if false filter away
-  valid_src: ../data/de-en/tests/newstest2018.deu.tok
-  valid_tgt: ../data/de-en/tests/newstest2018.eng.tok
+  valid_src: ../data/de-en/tests/newstest2018_deen.deu.tok
+  valid_tgt: ../data/de-en/tests/newstest2018_deen.eng.tok
 tester:
   decoder:
     beam_size: 4
