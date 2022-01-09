@@ -1,0 +1,17 @@
+train_src: ../data/de-en/train.deu.tok
+train_tgt: ../data/de-en/train.eng.tok
+valid_src: ../data/de-en/tests/newstest2018_deen.deu.tok
+valid_tgt: ../data/de-en/tests/newstest2018_deen.eng.tok
+# src_global_list: ../data/mwe-lists/hi_8000.json
+# tgt_global_list: ../data/mwe-lists/enhi_8000.json
+shared_global_list: ../data/mwe-lists/de_8000.json # Change this
+truncate: True
+src_len: 512
+tgt_len: 512
+shared: True
+max_types: 4000
+# max_src_types: 4000
+# max_tgt_types: 4000
+pieces: extmwe
+# src_pieces: extmwe
+# tgt_pieces: extmwe

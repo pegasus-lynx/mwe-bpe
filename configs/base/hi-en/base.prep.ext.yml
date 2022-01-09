@@ -1,0 +1,17 @@
+train_src: ../data/hi-en/train.hin.tok
+train_tgt: ../data/hi-en/train.eng.tok
+valid_src: ../data/hi-en/tests/IITB-hien_dev-3.hin.tok
+valid_tgt: ../data/hi-en/tests/IITB-hien_dev-3.eng.tok
+src_global_list: ../data/mwe-lists/hi_8000.json
+tgt_global_list: ../data/mwe-lists/enhi_8000.json
+# shared_global_list: ../data/mwe-lists/
+truncate: True
+src_len: 512
+tgt_len: 512
+shared: False
+# max_types: 4000
+max_src_types: 4000
+max_tgt_types: 4000
+# pieces: mwe
+src_pieces: extmwe
+tgt_pieces: extmwe
