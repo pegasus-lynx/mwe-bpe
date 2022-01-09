@@ -92,7 +92,13 @@ def update_paths(configs, repo_root:Path, name:str):
     if name == 'prep.yml':
         for pth in prep_paths:
             new_path = repo_root / Path(configs[pth]) 
-            configs[pth] = str(new_path.resolve())            
+            configs[pth] = str(new_path.resolve())   
+
+        global_list_files = ['src_global_list', 'tgt_global_list', 'shared_global_list']
+        for pth in global_list_files:
+            if pth in configs.keys():
+                new_path = repo_root / Path(configs[pth])
+                configs[pth] = str(new_path.resolve())         
     else:
         for pth in prep_paths:
             new_path = repo_root / Path(configs['prep'][pth]) 
@@ -130,11 +136,6 @@ def main():
     print("Reading configs ...")
     base_configs = read_conf(args.base_config_file, 'yaml')
 
-    if args.repo_root is not None:
-        # Update Paths
-        print("Updating Paths")
-        base_configs = update_paths(base_configs, args.repo_root, args.output_filename)
-
     if args.kwargs is not None:
         print("Parameters to be updated ...")
         print(args.kwargs)
@@ -145,6 +146,11 @@ def main():
         # Update Confs
         print("Updating configs ...")
         base_configs = update_configs(base_configs, args.kwargs)
+
+    if args.repo_root is not None:
+        # Update Paths
+        print("Updating Paths")
+        base_configs = update_paths(base_configs, args.repo_root, args.output_filename)
 
     # Save Confs
     print("Making Directory ...")

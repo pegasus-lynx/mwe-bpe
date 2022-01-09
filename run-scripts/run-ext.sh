@@ -83,7 +83,7 @@ do
 
     # 5. Decode tests
 
-    # if [ $shared -eq 1]; then
+    # if [ $shared -eq 1 ]; then
     #     decode_tests_deen $exp_dir $cuda_device
     # else
     #     decode_tests_hien $exp_dir $cuda_device

@@ -76,7 +76,7 @@ do
         # python -m make_single -w $exp_dir -c "${exp_dir}/prep.yml"
 
         # 3. For baselines only conf.yml is needed.
-        if [ $shared -eq 1]; then
+        if [ $shared -eq 1 ]; then
             echo "In Shared"
             python -m make_conf -n conf.yml -w $exp_dir -c $base_conf_file -r $repo_root --kwargs src_vocab=$sz tgt_vocab=$sz max_types=$sz
         else
@@ -88,7 +88,7 @@ do
 
         # 5. Decode tests
 
-        if [ $shared -eq 1]; then
+        if [ $shared -eq 1 ]; then
             decode_tests_deen $exp_dir $cuda_device
         else
             decode_tests_hien $exp_dir $cuda_device
