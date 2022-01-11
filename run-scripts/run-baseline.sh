@@ -68,8 +68,8 @@ do
         python -m make_conf -n conf.yml -w $exp_dir -c $base_conf_file --kwargs src_vocab=$sz tgt_vocab=$sz max_src_types=$sz max_tgt_types=$sz pieces=$pieces codec_lib=$codec_lib
     fi
 
-    #CUDA_VISIBLE_DEVICES=$cuda_device, rtg-pipe $exp_dir -G
-    rtg-pipe $exp_dir
+    CUDA_VISIBLE_DEVICES=$cuda_device, rtg-pipe $exp_dir -G
+    # rtg-pipe $exp_dir
 
     # 5. Decode tests
     if [ $shared -eq 1 ]; then

@@ -16,3 +16,5 @@ extensions.json
 # Excluding new data
 data.simp/*
 !data.simp/confs/
+
+todo-list.md
