@@ -1,17 +1,19 @@
 
 # Range of variables for experiments
-vocab_sizes=(8000 16000 32000)
+vocab_sizes=(4000 8000)
 
 repo_root="../src"
-base_exp_dir="../temp/trials/ngram-exps/de-en/"
-base_conf_file="../configs/base/de-en/base.conf.yml"
-base_prep_file="../configs/base/de-en/base.prep.ngram.yml"
+base_exp_dir="../temp/trials/ngram-exps/hi-en/"
+base_conf_file="../configs/base/hi-en/base.conf.yml"
+base_prep_file="../configs/base/hi-en/base.prep.ngram.yml"
 
 shared=0
 
 pieces="bpe"
 src_pieces="ngram"
-tgt_pieces="bpe"
+tgt_piecesng="ngram"
+
+include_ngrams="2,3"
 
 cuda_device="2"
 
@@ -66,25 +68,23 @@ do
         
         # 1. For preparing the experiment data before hand
         if [ $shared -eq 1 ]; then
-            python -m make_conf -n prep.yml -w $exp_dir -c $base_prep_file -r $repo_root --kwargs pieces=$pieces max_types=$sz max_ngrams=$ngram_sz
+            python -m make_conf -n prep.yml -w $exp_dir -c $base_prep_file -r $repo_root --kwargs pieces=$pieces max_types=$sz max_ngrams=$ngram_sz include_ngrams=$include_ngrams
         else
-            echo "In Non Shared"
-            python -m make_conf -n prep.yml -w $exp_dir -c $base_prep_file -r $repo_root --kwargs max_src_types=$sz max_tgt_types=$sz max_ngrams=$ngram_sz src_pieces=$src_pieces tgt_pieces=$tgt_pieces
+            python -m make_conf -n prep.yml -w $exp_dir -c $base_prep_file -r $repo_root --kwargs max_src_types=$sz max_tgt_types=$sz max_ngrams=$ngram_sz src_pieces=$src_pieces tgt_pieces=$tgt_pieces include_ngrams=$include_ngrams
         fi
 
         # 2. Prepare the data
-        # python -m make_single -w $exp_dir -c "${exp_dir}/prep.yml"
+        python -m make_single -w $exp_dir -c "${exp_dir}/prep.yml"
 
         # 3. For baselines only conf.yml is needed.
         if [ $shared -eq 1 ]; then
-            echo "In Shared"
             python -m make_conf -n conf.yml -w $exp_dir -c $base_conf_file -r $repo_root --kwargs src_vocab=$sz tgt_vocab=$sz max_types=$sz
         else
             python -m make_conf -n conf.yml -w $exp_dir -c $base_conf_file -r $repo_root --kwargs src_vocab=$sz tgt_vocab=$sz max_src_types=$sz max_tgt_types=$sz
         fi
 
         # 4. Running experiments
-        # CUDA_VISIBLE_DEVICES=$cuda_device, rtg-pipe $exp_dir -G
+        CUDA_VISIBLE_DEVICES=$cuda_device, rtg-pipe $exp_dir -G
 
         # 5. Decode tests
 

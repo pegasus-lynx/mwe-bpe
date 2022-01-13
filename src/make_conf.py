@@ -138,10 +138,15 @@ def main():
 
     if args.kwargs is not None:
         print("Parameters to be updated ...")
+
+        if 'include_ngrams' in args.kwargs.keys() and type(args.kwargs['include_ngrams']) is not list:
+            args.kwargs['include_ngrams'] = [ args.kwargs['include_ngrams'] ]
+
+        if 'include_skipgrams' in args.kwargs.keys() and type(args.kwargs['include_skipgrams']) is not list:
+            args.kwargs['include_skipgrams'] = [ args.kwargs['include_skipgrams'] ]
+
         print(args.kwargs)
 
-        if 'include_ngrams' in args.kwargs.keys():
-            args.kwargs['include_ngrams'] = [ args.kwargs['include_ngrams'] ]
 
         # Update Confs
         print("Updating configs ...")
