@@ -63,7 +63,7 @@ do
     skip_tokens=($((5*$sz/100)) $((10*$sz/100)))
     for skip_sz in ${skip_tokens[@]}
     do
-        exp_dir="${base_exp_dir}/${sz}/skip/${skip_sz}"
+        exp_dir="${base_exp_dir}/${sz}/${src_pieces}-${tgt_pieces}/${skip_sz}"
         mkdir ${exp_dir} -p
         
         # 1. For preparing the experiment data before hand

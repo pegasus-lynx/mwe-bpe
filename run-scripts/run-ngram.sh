@@ -11,9 +11,10 @@ shared=0
 
 pieces="bpe"
 src_pieces="ngram"
-tgt_piecesng="ngram"
+tgt_pieces="ngram"
 
-include_ngrams="2,3"
+include_ngrams="2"
+ngram_string=${include_ngrams//[,]/-}
 
 cuda_device="2"
 
@@ -63,7 +64,7 @@ do
     ngram_tokens=($((5*$sz/100)) $((10*$sz/100)))
     for ngram_sz in ${ngram_tokens[@]}
     do
-        exp_dir="${base_exp_dir}/${sz}/ngram/${ngram_sz}"
+        exp_dir="${base_exp_dir}/${sz}/${src_pieces}-${tgt_pieces}-${ngram_string}/${ngram_sz}"
         mkdir ${exp_dir} -p
         
         # 1. For preparing the experiment data before hand
@@ -74,7 +75,7 @@ do
         fi
 
         # 2. Prepare the data
-        python -m make_single -w $exp_dir -c "${exp_dir}/prep.yml"
+        # python -m make_single -w $exp_dir -c "${exp_dir}/prep.yml"
 
         # 3. For baselines only conf.yml is needed.
         if [ $shared -eq 1 ]; then
@@ -84,14 +85,14 @@ do
         fi
 
         # 4. Running experiments
-        CUDA_VISIBLE_DEVICES=$cuda_device, rtg-pipe $exp_dir -G
+        # CUDA_VISIBLE_DEVICES=$cuda_device, rtg-pipe $exp_dir -G
 
-        # 5. Decode tests
+        # # 5. Decode tests
 
-        if [ $shared -eq 1 ]; then
-            decode_tests_deen $exp_dir $cuda_device
-        else
-            decode_tests_hien $exp_dir $cuda_device
-        fi
+        # if [ $shared -eq 1 ]; then
+        #     decode_tests_deen $exp_dir $cuda_device
+        # else
+        #     decode_tests_hien $exp_dir $cuda_device
+        # fi
     done
 done
