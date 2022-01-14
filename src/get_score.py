@@ -16,8 +16,9 @@ def parse_args():
 
 def main():
     args = parse_args()
-    bleu_str = eval_file(args.detok, args.ref)
+    bleu_str, chrf2 = eval_file(args.detok, args.ref)
     print(bleu_str)
+    print(chrf2)
 
 if __name__ == "__main__":
     main()
