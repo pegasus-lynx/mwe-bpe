@@ -12,21 +12,24 @@ model_args: # model construction args
   activation: gelu
   tied_emb: one-way
 model_type: tfmnmt
-optim:
-  name: ADAM
+optimizer:
+  name: adam
   args:
     betas:
     - 0.9
-    - 0.998
+    - 0.98
     eps: 1.0e-09
     lr: 0.2
-    warmup_steps: 16000
-    label_smoothing: 0.1
-    constant: 2
-    criterion: smooth_kld
-    amsgrad: false
     weight_decay: 0
-    inv_sqrt: false
+schedule:
+  name: inverse_sqrt
+  args:
+    warmup: 16000
+    peak_lr: 0.2
+criterion:
+  name: smooth_kld
+  args:
+    label_smoothing: 0.1
 prep: # data preparation
   codec_lib: nlcodec
   char_coverage: 0.9995
@@ -70,6 +73,8 @@ trainer:
   keep_models: 3   # how many checkpoints to keep on disk (small enough to save disk, large enough for checkpt averaging
   steps: 100000   # how many steps to train
   keep_in_mem: true
+  split_ratio: 0.25
+  # dynamic_epoch: false
   early_stop:
     patience: 5
     signi_round: 3

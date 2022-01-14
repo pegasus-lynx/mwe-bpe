@@ -137,16 +137,15 @@ def main():
     base_configs = read_conf(args.base_config_file, 'yaml')
 
     if args.kwargs is not None:
+
+        # Ensuring list based params are in list format
+        list_args = ["include_ngrams", "include_skipgrams", "mwe_tokens"]
+        for arg_name in list_args:
+            if arg_name in args.kwargs.keys() and type(args.kwargs[arg_name]) is not list:
+                args.kwargs[arg_name] = [args.kwargs[arg_name]]
+
         print("Parameters to be updated ...")
-
-        if 'include_ngrams' in args.kwargs.keys() and type(args.kwargs['include_ngrams']) is not list:
-            args.kwargs['include_ngrams'] = [ args.kwargs['include_ngrams'] ]
-
-        if 'include_skipgrams' in args.kwargs.keys() and type(args.kwargs['include_skipgrams']) is not list:
-            args.kwargs['include_skipgrams'] = [ args.kwargs['include_skipgrams'] ]
-
         print(args.kwargs)
-
 
         # Update Confs
         print("Updating configs ...")

@@ -1,9 +1,10 @@
 
 # Range of variables for experiments
-vocab_sizes=(4000 8000)
+# vocab_sizes=(4000 8000)
+vocab_sizes=(7000)
 
 repo_root="../src"
-base_exp_dir="../temp/trials/extmwe-exps/hi-en/"
+base_exp_dir="../temp/trials/extmwe-exps-sep/hi-en/"
 base_conf_file="../configs/base/hi-en/base.conf.yml"
 base_prep_file="../configs/base/hi-en/base.prep.ext.yml"
 
@@ -12,6 +13,8 @@ shared=0
 pieces="extmwe"
 src_pieces="extmwe"
 tgt_pieces="extmwe"
+
+mwe_tokens="bi"
 
 cuda_device="2"
 
@@ -63,9 +66,9 @@ do
     
     # 1. For preparing the experiment data before hand
     if [ $shared -eq 1 ]; then
-        python -m make_conf -n prep.yml -w $exp_dir -c $base_prep_file -r $repo_root --kwargs pieces=$pieces max_types=$sz
+        python -m make_conf -n prep.yml -w $exp_dir -c $base_prep_file -r $repo_root --kwargs pieces=$pieces max_types=$sz mwe_tokens=$mwe_tokens
     else
-        python -m make_conf -n prep.yml -w $exp_dir -c $base_prep_file -r $repo_root --kwargs max_src_types=$sz max_tgt_types=$sz src_pieces=$src_pieces tgt_pieces=$tgt_pieces
+        python -m make_conf -n prep.yml -w $exp_dir -c $base_prep_file -r $repo_root --kwargs max_src_types=$sz max_tgt_types=$sz src_pieces=$src_pieces tgt_pieces=$tgt_pieces mwe_tokens=$mwe_tokens
     fi
 
     # 2. Prepare the data

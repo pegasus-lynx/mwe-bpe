@@ -1,6 +1,6 @@
 import argparse
 import os
-from json import load
+import json
 
 from pathlib import Path 
 import collections as coll
@@ -19,18 +19,21 @@ ds_keys = ['src','tgt']
 def prep_vocabs(train_files:Dict[str,Path], 
         vocab_files:Dict[str,Path], pieces:Dict[str,str], 
         shared:bool, vocab_sizes:Dict[str,int], 
-        global_list_files:Dict[str, Path]):
+        global_list_files:Dict[str, Path], mwe_tokens=['bi', 'tri', 'ski']):
     
     keys = ['shared'] if shared else ['src', 'tgt']
     for key in keys:
         scheme = get_scheme(pieces[key])
+        global_lists = json.loads(global_list_files[key].read_text())
+        mwe_lists = { x:global_lists[x] for x in mwe_tokens if x in global_lists.keys()}
+        print("Tokens from following lists will be included : ", mwe_lists.keys())
         if key == 'shared':
             corp = uniq_reader_func(*train_files.values())
         else:
             corp = uniq_reader_func(train_files[key])
 
         vocab = scheme.learn(corp, vocab_sizes[key],
-                                global_list_files[key])
+                                mwe_lists)
         Type.write_out(vocab, vocab_files[key])
 
 def prep_data(train_files:Dict[str, Path], val_files:Dict[str, Path], 
@@ -102,7 +105,7 @@ def prep(configs, work_dir):
     vcb_flag = work_dir / Path('_VOCABS')
     if not vcb_flag.exists():
         prep_vocabs(train_files, vocab_files, 
-                pieces, shared, vocab_sizes, global_list_files)
+                pieces, shared, vocab_sizes, global_list_files, configs['mwe_tokens'])
         make_file(vcb_flag)
 
     data_flag = work_dir / Path('_DATA')

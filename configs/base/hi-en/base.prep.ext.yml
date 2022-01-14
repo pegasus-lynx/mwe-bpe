@@ -15,3 +15,7 @@ max_tgt_types: 4000
 # pieces: mwe
 src_pieces: extmwe
 tgt_pieces: extmwe
+mwe_tokens:
+  - bi
+  - tri
+  - ski
