@@ -1,9 +1,9 @@
 
 # Range of variables for experiments
-vocab_sizes=(4000 8000)
+vocab_sizes=(8000)
 
 repo_root="../src"
-base_exp_dir="../temp/trials/ngram-exps/hi-en/"
+base_exp_dir="../temp/trials/ngram-exps-2/hi-en/"
 base_conf_file="../configs/base/hi-en/base.conf.yml"
 base_prep_file="../configs/base/hi-en/base.prep.ngram.yml"
 
@@ -75,7 +75,7 @@ do
         fi
 
         # 2. Prepare the data
-        # python -m make_single -w $exp_dir -c "${exp_dir}/prep.yml"
+        python -m make_single -w $exp_dir -c "${exp_dir}/prep.yml"
 
         # 3. For baselines only conf.yml is needed.
         if [ $shared -eq 1 ]; then
