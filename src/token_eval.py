@@ -43,6 +43,7 @@ def parse_args():
 
 def get_coverage(src_lines, tgt_lines, out_tsv_file, src_vocab, tgt_vocab, out_dir, suite_name="test"):
     out_tgt_dist = None
+    out_tokens = 1000000000
     if out_tsv_file is not None:
         outs = read_out_tsv_file(out_tsv_file, tgt_vocab)
         out_tgt_dist, out_tokens = Analysis.get_token_freqs(outs)
@@ -79,6 +80,7 @@ def get_coverage(src_lines, tgt_lines, out_tsv_file, src_vocab, tgt_vocab, out_d
 
             ecov = 0
             efreq = 0
+            eperc = 0
             if idx in inp_tgt_dist.keys():
                 ecov = inp_tgt_dist[tok.idx][0] / nlines
                 efreq = inp_tgt_dist[tok.idx][1]
