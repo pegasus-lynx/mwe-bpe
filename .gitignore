@@ -4,6 +4,7 @@
 /results/*
 /details/*
 /temp/*
+/decodes/*
 
 # Excluding .vscode
 *settings.json

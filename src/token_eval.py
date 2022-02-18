@@ -20,6 +20,14 @@ def read_file(filepath, vocab=None):
             lines.append(vocab.encode(line) if vocab is not None else line)
     return lines
 
+def read_out_tsv_file(filepath, vocab=None):
+    lines = []
+    with open(filepath) as fp:
+        for line in fp:
+            text, _ = line.split('\t')
+            lines.append(vocab.encode(text) if vocab is not None else text)
+    return lines
+
 def parse_args():
     parser = argparse.ArgumentParser(prog="token_eval", description="Used to get the performance per token.")
     parser.add_argument('-s', '--src_vcb', type=Path)
@@ -28,11 +36,58 @@ def parse_args():
     parser.add_argument('-r', '--ref_file', type=Path)
     parser.add_argument('-vs', '--valid_src', type=Path)
     parser.add_argument('-vt', '--valid_tgt', type=Path)
-    parser.add_argument('-e', '--eval_type', type=str, choices=['group_bleu', 'bleu_line_sort', 'both'], default='group_bleu')
+    parser.add_argument('-e', '--eval_type', type=str, choices=['group_bleu', 'bleu_line_sort', 'both', 'coverage'], default='group_bleu')
     parser.add_argument('-o', '--out_dir', type=Path)
+    parser.add_argument('-suite', '--suite_name', type=str, default="")
     return parser.parse_args()
 
-def get_scores(out_files, ref_file, lines, calculate_rev=True):    
+def get_coverage(src_lines, tgt_lines, out_tsv_file, src_vocab, tgt_vocab, out_dir, suite_name="test"):
+    out_tgt_dist = None
+    if out_tsv_file is not None:
+        outs = read_out_tsv_file(out_tsv_file, tgt_vocab)
+        out_tgt_dist, out_tokens = Analysis.get_token_freqs(outs)
+        #out_tgt_dist[0] = []
+
+    nlines = len(src_lines)
+    src_dist, src_tokens = Analysis.get_token_freqs(src_lines)
+    inp_tgt_dist, inp_tokens = Analysis.get_token_freqs(tgt_lines)
+    
+    #src_dist[0] = []
+    #inp_tgt_dist[0] = []
+
+    with open( out_dir/ f"cov.src.{suite_name}.txt", 'w') as fw:
+        for idx in range(len(src_vocab)):
+            if idx not in src_dist.keys():
+                cov = 0
+                freq = 0
+            else:
+                cov = src_dist[idx][0] / nlines
+                freq = src_dist[idx][1]
+            tok = src_vocab.table[idx]
+            fw.write("\t".join([tok.name, str(cov), str(freq), str(freq / src_tokens)]))
+            fw.write("\n")
+
+    with open(out_dir / f"cov.tgt.{suite_name}.txt", 'w') as fw:
+        for idx in range(len(tgt_vocab)):
+            tok = tgt_vocab.table[idx]
+            acov = 0
+            afreq = 0
+            if out_tgt_dist is not None:
+                if idx in out_tgt_dist.keys():
+                    acov = out_tgt_dist[tok.idx][0] / nlines
+                    afreq = out_tgt_dist[tok.idx][1]
+
+            ecov = 0
+            efreq = 0
+            if idx in inp_tgt_dist.keys():
+                ecov = inp_tgt_dist[tok.idx][0] / nlines
+                efreq = inp_tgt_dist[tok.idx][1]
+            
+            fw.write("\t".join([tok.name, str(ecov), str(efreq), str(efreq/out_tokens), str(acov), str(afreq), str(afreq/inp_tokens)]))
+            fw.write("\n")
+
+
+def get_scores(out_files, ref_file, lines, calculate_rev=True, bleu_str=True):    
     refs = read_file(ref_file)
     frefs = [refs[x] for x in lines]
     
@@ -53,7 +108,9 @@ def get_scores(out_files, ref_file, lines, calculate_rev=True):
         scores[key] = dict()
         rev_scores[key] = dict()
 
-        scores[key]['bleu'] = 0 if nlines==0 else Scores.corpus_bleu(fouts, frefs)
+        bleu = 0 if nlines==0 else Scores.corpus_bleu(fouts, frefs)
+        sbleu =  str(bleu) if bleu_str else bleu
+        scores[key]['bleu'] = 0 if nlines==0 else sbleu
         scores[key]['chrf'] = 0 if nlines==0 else str(Scores.corpus_chrf(fouts, frefs))
         
         if calculate_rev:
@@ -144,7 +201,7 @@ def bleu_based_line_sort(out_files, ref_file, valid_src_lines, valid_tgt_lines, 
 
     scores_list = []
     for ix in range(nlines):
-        scores, _ = get_scores(out_files, ref_file, [ix], False)
+        scores, _ = get_scores(out_files, ref_file, [ix], False, False)
         bleu_diff = scores['skip100']['bleu'].score - scores['base']['bleu'].score
         
         scores_list.append((ix, bleu_diff, scores))
@@ -172,13 +229,14 @@ def main():
     valid_src_lines = read_file(args.valid_src, src_vocab)
     valid_tgt_lines = read_file(args.valid_tgt, tgt_vocab)
     
-    assert len(args.detok_files) % 2 == 0
-    out_files = []
+    if args.eval_type != 'coverage':
+        assert len(args.detok_files) % 2 == 0
+        out_files = []
 
-    for i in range(len(args.detok_files)//2):
-        key = args.detok_files[(2*i)]
-        fpath = Path(args.detok_files[(2*i)+1])
-        out_files.append((key, fpath))
+        for i in range(len(args.detok_files)//2):
+            key = args.detok_files[(2*i)]
+            fpath = Path(args.detok_files[(2*i)+1])
+            out_files.append((key, fpath))
     
     if args.eval_type == 'group_bleu' or args.eval_type == 'both':
         src_stats = one_side_eval(valid_src_lines, src_vocab, out_files, args.ref_file, args.out_dir / Path('stats.src.yml'))
@@ -188,6 +246,11 @@ def main():
     
     if args.eval_type == 'bleu_line_sort' or args.eval_type == 'both':
         bleu_based_line_sort(out_files, args.ref_file, valid_src_lines, valid_tgt_lines, src_vocab, tgt_vocab, args.out_dir / Path('stats.sort.txt'))
+
+    if args.eval_type == 'coverage':
+        get_coverage(valid_src_lines, valid_tgt_lines, args.ref_file, src_vocab, tgt_vocab, args.out_dir, args.suite_name)
+
+
 
 if __name__ == "__main__":
     main()

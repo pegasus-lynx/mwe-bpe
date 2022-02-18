@@ -57,6 +57,23 @@ class Analysis():
 
         return tokenwise_lines
         
+    @classmethod
+    def get_token_freqs(cls, lines:List[List[Union[str,int]]]):
+        assert lines is not None
+        token_freqs = dict()
+        ntokens = 0
+        for ix,line in enumerate(lines):
+            uniq_toks = set()
+            ntokens += len(line)
+            for token in line:
+                if token not in token_freqs.keys():
+                    token_freqs[token] = [0,0]
+                token_freqs[token][1] += 1
+                uniq_toks.add(token)
+            for tok in uniq_toks:
+                token_freqs[token][0] += 1
+
+        return token_freqs, ntokens
 
 
     @classmethod

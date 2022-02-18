@@ -3,7 +3,7 @@
 vocab_sizes=(4000 8000)
 
 repo_root="../src"
-base_exp_dir="../temp/trials/skip-exps/hi-en/"
+base_exp_dir="../temp/min_freq_200/skipgram/hi-en/"
 base_conf_file="../configs/base/hi-en/base.conf.yml"
 base_prep_file="../configs/base/hi-en/base.prep.sgram.yml"
 
@@ -60,7 +60,7 @@ cd $repo_root
 
 for sz in ${vocab_sizes[@]}
 do
-    skip_tokens=($((5*$sz/100)) $((10*$sz/100)))
+    skip_tokens=($((10*$sz/100)) $((10*$sz/100)))
     for skip_sz in ${skip_tokens[@]}
     do
         exp_dir="${base_exp_dir}/${sz}/${src_pieces}-${tgt_pieces}/${skip_sz}"

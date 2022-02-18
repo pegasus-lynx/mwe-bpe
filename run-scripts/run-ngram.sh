@@ -3,7 +3,7 @@
 vocab_sizes=(8000)
 
 repo_root="../src"
-base_exp_dir="../temp/trials/ngram-exps-2/hi-en/"
+base_exp_dir="../temp/min_freq_200/ngram/hi-en/"
 base_conf_file="../configs/base/hi-en/base.conf.yml"
 base_prep_file="../configs/base/hi-en/base.prep.ngram.yml"
 
@@ -13,7 +13,8 @@ pieces="bpe"
 src_pieces="ngram"
 tgt_pieces="ngram"
 
-include_ngrams="2"
+include_ngrams="3"
+min_freq=200
 ngram_string=${include_ngrams//[,]/-}
 
 cuda_device="2"
@@ -61,7 +62,7 @@ cd $repo_root
 
 for sz in ${vocab_sizes[@]}
 do
-    ngram_tokens=($((5*$sz/100)) $((10*$sz/100)))
+    ngram_tokens=($((5*$sz/100)))
     for ngram_sz in ${ngram_tokens[@]}
     do
         exp_dir="${base_exp_dir}/${sz}/${src_pieces}-${tgt_pieces}-${ngram_string}/${ngram_sz}"
@@ -69,9 +70,9 @@ do
         
         # 1. For preparing the experiment data before hand
         if [ $shared -eq 1 ]; then
-            python -m make_conf -n prep.yml -w $exp_dir -c $base_prep_file -r $repo_root --kwargs pieces=$pieces max_types=$sz max_ngrams=$ngram_sz include_ngrams=$include_ngrams
+	    python -m make_conf -n prep.yml -w $exp_dir -c $base_prep_file -r $repo_root --kwargs pieces=$pieces max_types=$sz max_ngrams=$ngram_sz include_ngrams=$include_ngrams min_freq=$min_freq
         else
-            python -m make_conf -n prep.yml -w $exp_dir -c $base_prep_file -r $repo_root --kwargs max_src_types=$sz max_tgt_types=$sz max_ngrams=$ngram_sz src_pieces=$src_pieces tgt_pieces=$tgt_pieces include_ngrams=$include_ngrams
+            python -m make_conf -n prep.yml -w $exp_dir -c $base_prep_file -r $repo_root --kwargs max_src_types=$sz max_tgt_types=$sz max_ngrams=$ngram_sz src_pieces=$src_pieces tgt_pieces=$tgt_pieces include_ngrams=$include_ngrams min_freq=$min_freq
         fi
 
         # 2. Prepare the data
