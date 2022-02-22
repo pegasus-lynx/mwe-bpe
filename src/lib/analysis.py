@@ -45,6 +45,20 @@ class Analysis():
 
 
     @classmethod
+    def get_lines_with_tokens(cls, lines:List[List[Union[str,int]]], tokens:List[Union[str,int]], get_indexes:bool=False):
+        present_int = []
+        for ix, line in enumerate(lines):
+            for tok in line:
+                if tok in tokens:
+                    present_in.append(ix)
+                    break
+        if get_indexes:
+            return present_in
+
+        return [lines[x] for x in present_in]
+
+
+    @classmethod
     def get_tokenwise_lines(cls, lines:List[List[Union[str,int]]]):
         assert lines is not None
 
@@ -56,7 +70,8 @@ class Analysis():
                 tokenwise_lines[token].append(ix)
 
         return tokenwise_lines
-        
+
+
     @classmethod
     def get_token_freqs(cls, lines:List[List[Union[str,int]]]):
         assert lines is not None
