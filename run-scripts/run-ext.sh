@@ -9,6 +9,7 @@ base_conf_file="../configs/base/hi-en/base.conf.yml"
 base_prep_file="../configs/base/hi-en/base.prep.ext.yml"
 
 shared=0
+split_ratio=0.25
 
 pieces="extmwe"
 src_pieces="extmwe"
@@ -66,9 +67,9 @@ do
     
     # 1. For preparing the experiment data before hand
     if [ $shared -eq 1 ]; then
-        python -m make_conf -n prep.yml -w $exp_dir -c $base_prep_file -r $repo_root --kwargs pieces=$pieces max_types=$sz mwe_tokens=$mwe_tokens
+        python -m make_conf -n prep.yml -w $exp_dir -c $base_prep_file -r $repo_root --kwargs pieces=$pieces max_types=$sz mwe_tokens=$mwe_tokens split_ratio=$split_ratio
     else
-        python -m make_conf -n prep.yml -w $exp_dir -c $base_prep_file -r $repo_root --kwargs max_src_types=$sz max_tgt_types=$sz src_pieces=$src_pieces tgt_pieces=$tgt_pieces mwe_tokens=$mwe_tokens
+        python -m make_conf -n prep.yml -w $exp_dir -c $base_prep_file -r $repo_root --kwargs max_src_types=$sz max_tgt_types=$sz src_pieces=$src_pieces tgt_pieces=$tgt_pieces mwe_tokens=$mwe_tokens split_ratio=$split_ratio
     fi
 
     # 2. Prepare the data

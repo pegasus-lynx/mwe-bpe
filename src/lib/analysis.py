@@ -46,7 +46,7 @@ class Analysis():
 
     @classmethod
     def get_lines_with_tokens(cls, lines:List[List[Union[str,int]]], tokens:List[Union[str,int]], get_indexes:bool=False):
-        present_int = []
+        present_in = []
         for ix, line in enumerate(lines):
             for tok in line:
                 if tok in tokens:

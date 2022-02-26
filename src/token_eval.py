@@ -13,6 +13,11 @@ from lib.analysis import Scores, Analysis
 from nlcodec.codec import load_scheme
 from ruamel.yaml import YAML
 
+def read_anyfile(filepath, vocab=None):
+    if str(filepath).endswith('out.tsv'):
+        return read_out_tsv_file(filepath, vocab)
+    return read_file(filepath, vocab)
+
 def read_file(filepath, vocab=None):
     lines = []
     with open(filepath) as fp:
@@ -22,10 +27,16 @@ def read_file(filepath, vocab=None):
 
 def read_out_tsv_file(filepath, vocab=None):
     lines = []
+    tok_2_idx = dict()
+    if vocab is not None:
+        for tok in vocab.table:
+            tok_2_idx[tok.name] = tok.idx
+
     with open(filepath) as fp:
         for line in fp:
             text, _ = line.split('\t')
-            lines.append(vocab.encode(text) if vocab is not None else text)
+            tokens = text.split()
+            lines.append([tok_2_idx[tok] for tok in tokens] if vocab is not None else text)
     return lines
 
 def parse_args():
@@ -101,7 +112,7 @@ def get_scores(out_files, ref_file, lines, calculate_rev=True, bleu_str=True):
     rev_scores = dict()
     
     for key, ofile in out_files:
-        outs = read_file(ofile)
+        outs = read_anyfile(ofile)
         fouts = [outs[x] for x in lines]
         
         if calculate_rev:
@@ -128,7 +139,7 @@ def one_side_eval(test_lines, vocab, out_files, ref_file, save_file=None):
     stats = dict()
 
     for token in vocab.table:
-        if token.level < 3:
+        if token.level < 1:
             continue
         n = token.name
         stats[n] = dict()
@@ -139,7 +150,7 @@ def one_side_eval(test_lines, vocab, out_files, ref_file, save_file=None):
         stats[n]['freq'] = len(lines)
         stats[n]['lines'] = lines
 
-        scores, rev_scores = get_scores(out_files, ref_file, lines)
+        scores, rev_scores = get_scores(out_files, ref_file, lines, calculate_rev=False)
         stats[n]['scores'] = scores
         stats[n]['rev_scores'] = rev_scores
 
@@ -180,7 +191,7 @@ def aggregate_stats(stats, out_files, ref_file, save_file=None):
 
         lines = list(lines)
         ostats[f]['nlines'] = len(lines)
-        scores, rev_scores = get_scores(out_files, ref_file, lines)
+        scores, rev_scores = get_scores(out_files, ref_file, lines, calculate_rev=False)
         ostats[f]['scores'] = scores
         ostats[f]['rev_scores'] = rev_scores
 
@@ -214,7 +225,12 @@ def bleu_based_line_sort(out_files, ref_file, valid_src_lines, valid_tgt_lines, 
         with open(save_file, 'w') as fw:
             for ix, bleu_diff, scores in scores_list:
                 fw.write(f'{ix}  |  Diff : {bleu_diff}    |  Skip : {str(scores["skip100"]["bleu"].score)}  |  Base : {str(scores["base"]["bleu"].score)}\n')
-                src_line = src_vocab.decode(valid_src_lines[ix])
+                try:
+                    src_line = src_vocab.decode(valid_src_lines[ix])
+                except Exception as e:
+                    print(ix)
+                    print(valid_src_lines[ix])
+                    print(refs[ix])
                 fw.write(f'SRC   |  {src_line}\n')
                 fw.write(f'REF   |  {refs[ix]}')
                 fw.write(f'BASE  |  {ofiles["base"][ix]}')

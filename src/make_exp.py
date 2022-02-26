@@ -38,7 +38,7 @@ def prep_vocabs(train_files:Dict[str,Path],
 
 def prep_data(train_files:Dict[str, Path], val_files:Dict[str, Path], 
             vocab_files:Dict[str, Path], pieces:Dict[str, str], shared:bool, 
-            src_len:int, tgt_len:int, truncate:bool, work_dir:Path):
+            src_len:int, tgt_len:int, truncate:bool, work_dir:Path, split_ratio:float=0.0):
     
     codecs = {}
     for key, fpath in vocab_files.items():
@@ -52,7 +52,7 @@ def prep_data(train_files:Dict[str, Path], val_files:Dict[str, Path],
     ## For train files
     recs = TSVData.read_raw_parallel_recs(train_files['src'], 
                 train_files['tgt'], truncate, src_len, tgt_len,
-                src_codec.encode, tgt_codec.encode)
+                lambda x : src_codec.encode(x, split_ratio), lambda y : tgt_codec.encode(y, split_ratio))
     # TSVData.write_parallel_recs(recs, work_dir / Path('train.tsv'))
     SqliteFile.write(work_dir / Path('train.db'), recs)
 
@@ -112,7 +112,7 @@ def prep(configs, work_dir):
     if not data_flag.exists():
         prep_data(train_files, val_files, vocab_files, pieces,
             shared, configs['src_len'], configs['tgt_len'],
-            configs['truncate'], data_dir)
+            configs['truncate'], data_dir, split_ratio=configs['split_ratio'])
         make_file(data_flag)
 
     make_file(work_dir / Path('_PREPARED'))
