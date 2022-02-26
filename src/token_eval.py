@@ -92,6 +92,7 @@ def get_coverage(src_lines, tgt_lines, out_tsv_file, src_vocab, tgt_vocab, out_d
 
             ecov = 0
             efreq = 0
+            eperc = 0
             if idx in inp_tgt_dist.keys():
                 ecov = inp_tgt_dist[tok.idx][0] / nlines
                 efreq = inp_tgt_dist[tok.idx][1]
