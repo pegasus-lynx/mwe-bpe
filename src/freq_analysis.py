@@ -5,8 +5,10 @@ import json
 from pathlib import Path 
 import collections as coll
 from typing import List, Dict, Tuple
+from tqdm import tqdm
 
 from nlcodec import Type
+from nlcodec.codec import ExtMWEScheme as ems
 from rtg.data.dataset import TSVData, SqliteFile
 
 from lib.analysis import Scores, Analysis
@@ -35,12 +37,12 @@ def read_out_tsv_file(filepath, vocab=None):
     return lines
 
 def parse_args():
-    parser = argparse.ArgumentParser(prog="token_eval", description="Used to get the performance per token.")
+    parser = argparse.ArgumentParser(prog="freq_eval", description="Used to get the performance per token.")
     parser.add_argument('-sb', '--src_base_vcb', type=Path)
     parser.add_argument('-tb', '--tgt_base_vcb', type=Path)
-    parser.add_argument('-df', '--detok_files', nargs='+', type=str)
-    #parser.add_argument('-sf', '--src_freq_vcb', type=Path)
-    parser.add_argument('-of', '--out_files', nargs='+', type=str)
+    #parser.add_argument('-df', '--detok_files', nargs='+', type=str)
+    parser.add_argument('-sf', '--src_freq_vcb', type=Path)
+    parser.add_argument('-of', '--detok_files', nargs='+', type=str)
     parser.add_argument('-tf', '--tgt_freq_vcb', type=Path)
     parser.add_argument('-r', '--ref_file', type=Path)
     parser.add_argument('-vs', '--valid_src', type=Path)
@@ -199,15 +201,22 @@ def aggregate_stats(stats, out_files, ref_file, save_file=None):
 
 def get_mwe_splits(vocab):
     tokens = set()
-    space_token = ''
-    skip_token = ''
+
+    space_tok = ems.space_char
+    skip_tok = ems.skip_char
+    
     for tok in vocab.table:
         if tok.level > 3:
             parts = tok.name.replace(space_tok, f'{space_tok} ').replace(skip_tok, f'{skip_tok} ').split()
             for part in parts:
                 tokens.add(part)
-    return list(tokens)
 
+    vcb_tokens = list()
+    for tok in vocab.table:
+        if tok.name in tokens:
+            vcb_tokens.append(tok)
+
+    return vcb_tokens
 
 def get_missing_tokens(base_vocab, freq_vocab):
     tokens = []
@@ -217,30 +226,79 @@ def get_missing_tokens(base_vocab, freq_vocab):
     for tok in base_vocab.table:
         if tok.name not in freq_tokens:
             tokens.append(tok)
-    return tokens:
+    return tokens
 
+def _set_token_stats(idx, flines, detok_files, ref_file):
+    sc, _ = get_scores(detok_files, ref_file, flines, False)
+    return dict({'idx':idx, 'sfreq':len(flines), 'scores':sc})
 
-def get_score_missing(lines, base_vocab, freq_vocab, out_files, ref_file, save_path):
+def get_score_missing(lines, base_vocab, freq_vocab, detok_files, ref_file, save_file):
     missing_tokens = get_missing_tokens(base_vocab, freq_vocab)
-    filtered_lines = Analysis.get_lines_with_tokens([x.split() for x in lines], missing_tokens, True)
-    
+    print("Missing Tokens : ", len(missing_tokens))
     stats = dict()
-    stats['all'] = dict()
-    stats['all']['idx'] = '-'
-    stats['all']['sfreq'] = len(filtered_lines)
-    
-    sc, rev_sc = get_scores(detok_files, ref_file, filtered_lines)
-    stats['all']['scores'] = sc
-    stats['all']['rev_scores'] = rev_sc
-    
-    for token in missing_tokens:
-        n = token.name
-        stats[n] = dict()
-        stats[n]['idx'] = token.idx
-        
 
-def get_score_mwe(lines, base_vocab, freq_vocab, out_files, ref_file, save_path):
-    pass
+    flines = Analysis.get_strlines_with_tokens(lines, [ tok.name for tok in missing_tokens], True)
+    stats['all'] = _set_token_stats('-', flines, detok_files, ref_file)
+    
+    for token in tqdm(missing_tokens):
+        n = token.name
+        flines = Analysis.get_strlines_with_token(lines, n, True)
+        stats[n] = _set_token_stats(token.idx, flines, detok_files, ref_file)
+
+    if save_file is not None:
+        yaml = YAML()
+        with open(save_file, 'w') as fw:
+            yaml.dump(stats, fw)
+
+    return stats
+
+def get_score_mwe(lines, freq_vocab, detok_files, ref_file, save_file):
+    tlines = [freq_vocab.encode(l) for l in lines]
+    slines = [l.replace(' ', ems.space_char) for l in lines ]
+
+    stats = dict()
+    split_stats = get_score_mwe_splits(slines, freq_vocab, detok_files, ref_file)
+    mwe_stats = get_score_mwe_toks(tlines, freq_vocab, detok_files, ref_file)
+    stats.update(mwe_stats)
+    stats.update(split_stats)
+
+    if save_file is not None:
+        yaml = YAML()
+        with open(save_file, 'w') as fw:
+            yaml.dump(stats, fw)
+
+    return stats
+
+def get_score_mwe_toks(lines, freq_vocab, detok_files, ref_file, save_path=None):
+    mwe_tokens = [ tok.idx for tok in freq_vocab.table if tok.level >= 3]
+    flines = Analysis.get_lines_with_tokens(lines, mwe_tokens, True)
+    stats = dict()
+    stats['all-mwe'] = _set_token_stats('-', flines, detok_files, ref_file)
+
+    for x in tqdm(mwe_tokens):
+        tok = freq_vocab.table[x]
+        flines = Analysis.get_lines_with_token(lines, tok.idx, True)
+        stats[tok.name] = _set_token_stats(tok.idx, flines, detok_files, ref_file)
+
+    if save_path:
+        pass
+
+    return stats
+
+def get_score_mwe_splits(lines, freq_vocab, detok_files, ref_file, save_path=None):
+    mwe_splits = get_mwe_splits(freq_vocab)
+
+    stats = dict()
+
+    for tok in tqdm(mwe_splits):
+        n = tok.name
+        flines = Analysis.get_strlines_with_token(lines, n, True)
+        stats[n] = _set_token_stats(tok.idx, flines, detok_files, ref_file)
+
+    if save_path:
+        pass
+
+    return stats
 
 def main():
     args = parse_args()
@@ -253,49 +311,32 @@ def main():
     vocabs['src']['freq'] = load_scheme(args.src_freq_vcb)
     vocabs['tgt']['freq'] = load_scheme(args.tgt_freq_vcb)
 
-    missing_tokens = dict()
-    mwe_tokens = dict()
-    missing_tokens['src'] = get_missing_tokens(src_base_vocab, src_freq_vocab)
-    missing_tokens['tgt'] = get_missing_tokens(tgt_base_vocab, tgt_freq_vocab)
-    mwe_tokens['src'] = [token.name if token.level > 3 for token in src_freq_vocab.table]
-    mwe_tokens['tgt'] = [token.name if token.level > 3 for token in tgt_freq_vocab.table]
-    
-    mwe_splits = dict()
-    mwe_splits['src'] = get_mwe_splits(vocabs['src']['freq'])
-    mwe_splits['tgt'] = get_mwe_splits(vocabs['tgt']['freq'])
-
     file_lines = dict()
     file_lines['src'] = read_file(args.valid_src)
     file_lines['tgt'] = read_file(args.valid_tgt)
     
-    assert len(args.detok_files) % 3 == 0
-    out_files = []
+    assert len(args.detok_files) % 2 == 0
+    detok_files = []
 
-    for i in range(len(args.detok_files)//3):
-        key = args.detok_files[(3*i)]
-        detok_fpath = Path(args.detok_files[(3*i)+1])
-        out_fpath = Path(args.detok_files[(3*i)+2])
-        out_files.append((key, (out_fpath, detok_fpath)))
+    for i in range(len(args.detok_files)//2):
+        key = args.detok_files[(2*i)]
+        detok_fpath = Path(args.detok_files[(2*i)+1])
+        # out_fpath = Path(args.detok_files[(3*i)+2])
+        detok_files.append((key, detok_fpath))
    
+    # detok_files = [(key, val[1]) for key,val in out_files]
+
     for key in ['src', 'tgt']:
         # BLEU Scores for sentences with missing tokens
+        slines = [l.replace(' ', ems.space_char) for l in file_lines[key] ]
+        
         fpath = args.out_dir / Path(f'{key}.missing.yml')
-        get_score_missing(file_lines[key], vocabs[key]['base'], vocabs[key]['freq'], out_files, args.ref_file, fpath)
+        get_score_missing(slines, vocabs[key]['base'], vocabs[key]['freq'], detok_files, args.ref_file, fpath)
 
         # BLEU Scores for mwe tokens and token splits
-        fpath = args.out_dir / Path(f'{key}.mwe.yml')
-        get_score_mwe(file_lines[key], vocabs[key]['base'], vocabs[key]['freq'], out_files, args.ref_file, fpath)
+        fpath = args.out_dir / Path(f'{key}.mwe.split.yml')
+        get_score_mwe(file_lines[key], vocabs[key]['freq'], detok_files, args.ref_file, fpath)
 
-    src_stats = one_side_eval(valid_src_lines, src_vocab, out_files, args.ref_file, args.out_dir / Path('stats.src.yml'))
-    tgt_stats = one_side_eval(valid_tgt_lines, tgt_vocab, out_files, args.ref_file, args.out_dir / Path('stats.tgt.yml'))
-    aggregate_stats(src_stats, out_files, args.ref_file, args.out_dir / Path('stats.src.aggregated.yml'))
-    aggregate_stats(tgt_stats, out_files, args.ref_file, args.out_dir / Path('stats.tgt.aggregated.yml'))
-    
-    if args.eval_type == 'bleu_line_sort' or args.eval_type == 'both':
-        bleu_based_line_sort(out_files, args.ref_file, valid_src_lines, valid_tgt_lines, src_vocab, tgt_vocab, args.out_dir / Path('stats.sort.txt'))
-
-    if args.eval_type == 'coverage':
-        get_coverage(valid_src_lines, valid_tgt_lines, args.ref_file, src_vocab, tgt_vocab, args.out_dir, args.suite_name)
 
 if __name__ == "__main__":
     main()

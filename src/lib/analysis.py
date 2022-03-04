@@ -28,6 +28,28 @@ class Scores():
 class Analysis():
 
     @classmethod
+    def get_strlines_with_token(cls, lines:List[str], token:str, get_indexes:bool=True):
+        present_in = []
+        for ix, line in enumerate(lines):
+            if token in line:
+                present_in.append(ix)
+        if get_indexes:
+            return present_in
+        return [lines[x] for x in present_in]
+
+    @classmethod
+    def get_strlines_with_tokens(cls, lines:List[str], tokens:List[str], get_indexes:bool=True):
+        present_in = []
+        for ix, line in enumerate(lines):
+            for token in tokens:
+                if token in line:
+                    present_in.append(ix)
+                    break
+        if get_indexes:
+            return present_in
+        return [lines[x] for x in present_in]
+
+    @classmethod
     def get_lines_with_token(cls, lines:List[List[Union[str,int]]], token:Union[str,int], get_indexes:bool=False):
         assert lines is not None and len(lines) != 0
         assert token is not None
