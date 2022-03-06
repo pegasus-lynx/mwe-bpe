@@ -52,7 +52,7 @@ score_hien () {
 
 cd $repo_root;
 all_scores=""
-for wdir in "${@:3}"
+for wdir in "${@:4}"
 do
     echo $wdir
     if [ $lpair == "hi-en" ]; then

@@ -1,10 +1,10 @@
 
 # Range of variables for experiments
 # vocab_sizes=(4000 8000)
-vocab_sizes=(7000)
+vocab_sizes=(8000)
 
 repo_root="../src"
-base_exp_dir="../temp/trials/extmwe-exps-sep/hi-en/"
+base_exp_dir="../temp/trials/extmwe-mar1/hi-en/"
 base_conf_file="../configs/base/hi-en/base.conf.yml"
 base_prep_file="../configs/base/hi-en/base.prep.ext.yml"
 
@@ -15,7 +15,7 @@ pieces="extmwe"
 src_pieces="extmwe"
 tgt_pieces="extmwe"
 
-mwe_tokens="bi"
+mwe_tokens="bi,tri,ski"
 
 cuda_device="2"
 
