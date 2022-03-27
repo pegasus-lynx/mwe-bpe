@@ -16,6 +16,7 @@ max_tgt_types: 4000
 src_pieces: extmwe
 tgt_pieces: extmwe
 split_ratio: 0.0
+max_mwes: -1
 mwe_tokens:
   - bi
   - tri

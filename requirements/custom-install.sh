@@ -38,5 +38,5 @@ if [[ $custom_rtg -eq 1 ]]; then
 	rtg_string="git+https://github.com/pegasus-lynx/rtg.git@version-040#egg=rtg"
 	pip install -e ${rtg_string}
 else
-	pip install rtg=${rtg_version}
+	pip install "rtg==${rtg_version}"
 fi
