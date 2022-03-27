@@ -19,7 +19,9 @@ ds_keys = ['src','tgt']
 def prep_vocabs(train_files:Dict[str,Path], 
         vocab_files:Dict[str,Path], pieces:Dict[str,str], 
         shared:bool, vocab_sizes:Dict[str,int], 
-        global_list_files:Dict[str, Path], mwe_tokens=['bi', 'tri', 'ski']):
+        global_list_files:Dict[str, Path], 
+        mwe_tokens=['bi', 'tri', 'ski'],
+        max_mwes=0, change_mode='replace'):
     
     keys = ['shared'] if shared else ['src', 'tgt']
     for key in keys:
@@ -33,7 +35,7 @@ def prep_vocabs(train_files:Dict[str,Path],
             corp = uniq_reader_func(train_files[key])
 
         vocab = scheme.learn(corp, vocab_sizes[key],
-                                mwe_lists)
+                                mwe_lists, max_mwes, change_mode)
         Type.write_out(vocab, vocab_files[key])
 
 def prep_data(train_files:Dict[str, Path], val_files:Dict[str, Path], 
