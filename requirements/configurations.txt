@@ -1,0 +1,42 @@
+How to install requirements for different configurations : 
+----------------------------------------------------------------------
+
+First step is to install requirements-base.txt : 
+
+	pip install -r requirements-base.txt
+
+Next we will install nlcodec and rtg.
+For this we use custom-install.sh with different parameters : 
+
+	There are three parameters :
+		b | nlcodec_branch 
+			- mwe_schemes : Genreal purpose, for running experiments ( default )
+			- decode_hack : Used for getting decode outputs consisting of individual tokens
+			- ext-ngram   : Used for ext bi + tri only experiments
+
+		r | rtg_version 
+			- 0.6.0	      : Latest
+			- 0.4.0	      : Used in general for our experiments ( default )
+
+		c | custom_rtg flag
+			- To be used to setup the environment when normal installation of rtg is not able to decode the experiments
+			- i.e. rtg-decode is not working with vocab mismatch / index out of bound issue
+
+	Examples : 
+		requirements-sent.txt	->	requirements-base.txt 
+						custom_install.sh -c
+	
+		requirements-060.txt	->	requirements-base.txt 
+						custom_install.sh -r 0.6.0
+
+		requirements-bitri.txt	-> 	requirements-base.txt
+						custom_install.sh -b ext-ngram
+
+		requirements-decode.txt	->	requirements-base.txt 
+						custom_install.sh -b decode_hack
+
+		requirements-mwe.txt	->	requirements-base.txt 
+						custom_install.sh
+		
+		
+
